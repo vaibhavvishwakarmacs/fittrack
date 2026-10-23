@@ -1,0 +1,98 @@
+import express from 'express';
+import { Workout } from '../models/Workout.js';
+import { authMiddleware } from '../middleware/auth.js';
+
+const router = express.Router();
+
+// GET /api/workouts
+router.get('/', authMiddleware, async (req, res) => {
+  try {
+    const workouts = await Workout.find({ userId: req.userId }).sort({ startedAt: -1 });
+    res.json({ data: workouts.map((w) => w.toJSON()) });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Failed to fetch workouts.' });
+  }
+});
+
+// POST /api/workouts
+router.post('/', authMiddleware, async (req, res) => {
+  try {
+    const {
+      title,
+      category,
+      durationMinutes,
+      notes,
+      startedAt,
+      targetMuscles,
+      dayOfWeek,
+      exercises,
+    } = req.body;
+
+    if (!title) {
+      return res.status(400).json({ error: 'Workout title is required.' });
+    }
+
+    // Calculate volume
+    let totalVolume = 0;
+    (exercises || []).forEach((ex) => {
+      (ex.sets || []).forEach((s) => {
+        if (s.isCompleted !== false) {
+          totalVolume += (Number(s.reps) || 0) * (Number(s.weightKg) || 0);
+        }
+      });
+    });
+
+    const mins = Number(durationMinutes) || 45;
+    const caloriesBurned = Math.round(mins * 6.5);
+
+    const workout = new Workout({
+      userId: req.userId,
+      title,
+      category: category || 'strength',
+      targetMuscles: Array.isArray(targetMuscles) ? targetMuscles : [],
+      dayOfWeek: dayOfWeek || null,
+      durationMinutes: mins,
+      totalVolumeKg: totalVolume,
+      caloriesBurned,
+      notes: notes || null,
+      startedAt: startedAt ? new Date(startedAt) : new Date(),
+      exercises: (exercises || []).map((ex, exIdx) => ({
+        name: ex.name,
+        category: ex.category || 'chest',
+        orderIndex: exIdx,
+        notes: ex.notes || null,
+        imageUrl: ex.imageUrl || ex.image_url || null,
+        targetMuscles: ex.targetMuscles || ex.target_muscles || [],
+        tips: ex.tips || [],
+        sets: (ex.sets || []).map((s) => ({
+          setNumber: s.setNumber || s.set_number,
+          reps: Number(s.reps) || 0,
+          weightKg: Number(s.weightKg || s.weight_kg) || 0,
+          rpe: s.rpe ? Number(s.rpe) : null,
+          support: s.support || 'normal',
+          isCompleted: s.isCompleted !== false && s.is_completed !== false,
+        })),
+      })),
+    });
+
+    await workout.save();
+    res.status(201).json({ data: workout.toJSON() });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Failed to save workout.' });
+  }
+});
+
+// DELETE /api/workouts/:id
+router.delete('/:id', authMiddleware, async (req, res) => {
+  try {
+    const result = await Workout.findOneAndDelete({ _id: req.params.id, userId: req.userId });
+    if (!result) {
+      return res.status(404).json({ error: 'Workout not found.' });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Failed to delete workout.' });
+  }
+});
+
+export default router;
