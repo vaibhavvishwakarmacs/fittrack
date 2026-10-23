@@ -21,61 +21,92 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/fittra
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use('/uploads', express.static(path.resolve('uploads')));
+
+const uploadDir = process.env.VERCEL ? path.join('/tmp', 'uploads') : path.resolve('uploads');
+app.use('/uploads', express.static(uploadDir));
+
+// MongoDB Connection Caching for Serverless (Vercel)
+let cachedPromise = null;
+
+export async function connectToDatabase() {
+  if (mongoose.connection.readyState === 1) {
+    return mongoose.connection;
+  }
+
+  if (!cachedPromise) {
+    cachedPromise = mongoose
+      .connect(MONGODB_URI, {
+        serverSelectionTimeoutMS: 5000,
+      })
+      .then((mongooseInstance) => {
+        console.log(`[MongoDB] Connected successfully.`);
+        return mongooseInstance;
+      })
+      .catch((err) => {
+        console.warn(`[MongoDB] Connection warning: ${err.message}`);
+        cachedPromise = null;
+        return null;
+      });
+  }
+
+  return cachedPromise;
+}
+
+// Ensure DB is connected for every incoming request
+app.use(async (_req, _res, next) => {
+  await connectToDatabase();
+  next();
+});
 
 // Health check endpoint
-let isMongoConnected = false;
-app.get('/api/health', (_req, res) => {
+const healthHandler = (_req, res) => {
   res.json({
     status: 'ok',
     backend: 'Express + Node.js',
+    environment: process.env.VERCEL ? 'Vercel Serverless' : 'Standalone Server',
     database: 'MongoDB',
-    connected: isMongoConnected,
+    connected: mongoose.connection.readyState === 1,
   });
-});
+};
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/profile', profileRoutes);
-app.use('/api/workouts', workoutRoutes);
-app.use('/api/nutrition', nutritionRoutes);
-app.use('/api/activity', activityRoutes);
-app.use('/api/weight', weightRoutes);
-app.use('/api/upload', uploadRoutes);
+app.get('/api/health', healthHandler);
+app.get('/health', healthHandler);
 
-// Serve static frontend assets in production
-const distPath = path.resolve('dist');
-app.use(express.static(distPath));
+// Route registration helper for both /api/xxx and /xxx
+const registerRoutes = (prefix = '') => {
+  app.use(`${prefix}/auth`, authRoutes);
+  app.use(`${prefix}/profile`, profileRoutes);
+  app.use(`${prefix}/workouts`, workoutRoutes);
+  app.use(`${prefix}/nutrition`, nutritionRoutes);
+  app.use(`${prefix}/activity`, activityRoutes);
+  app.use(`${prefix}/weight`, weightRoutes);
+  app.use(`${prefix}/upload`, uploadRoutes);
+};
 
-// SPA client-side routing fallback (all non-API routes return index.html)
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
-    return next();
-  }
-  res.sendFile(path.join(distPath, 'index.html'), (err) => {
-    if (err) {
-      next();
+// Mount for standard /api routes and root fallback
+registerRoutes('/api');
+registerRoutes('');
+
+// Serve static frontend assets in standalone production (non-Vercel)
+if (!process.env.VERCEL) {
+  const distPath = path.resolve('dist');
+  app.use(express.static(distPath));
+
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
+      return next();
     }
+    res.sendFile(path.join(distPath, 'index.html'), (err) => {
+      if (err) next();
+    });
   });
-});
+}
 
-// Connect to MongoDB
-mongoose
-  .connect(MONGODB_URI, {
-    serverSelectionTimeoutMS: 5000,
-  })
-  .then(() => {
-    isMongoConnected = true;
-    console.log(`[MongoDB] Connected successfully to: ${MONGODB_URI}`);
-  })
-  .catch((err) => {
-    isMongoConnected = false;
-    console.warn(`[MongoDB] Warning: Could not connect to MongoDB (${err.message}).`);
-    console.warn(`[MongoDB] Operating with local client-side fallback until MongoDB is reachable.`);
+// Only listen when running standalone (not in Vercel serverless environment)
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`[FitTrack Server] Running on http://localhost:${PORT}`);
   });
-
-app.listen(PORT, () => {
-  console.log(`[FitTrack Server] Running on http://localhost:${PORT}`);
-});
+}
 
 export default app;

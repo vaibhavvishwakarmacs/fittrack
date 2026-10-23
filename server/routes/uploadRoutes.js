@@ -6,9 +6,16 @@ import { authMiddleware } from '../middleware/auth.js';
 
 const router = express.Router();
 
-const uploadDir = path.resolve('uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+const uploadDir = process.env.VERCEL
+  ? path.join('/tmp', 'uploads')
+  : path.resolve('uploads');
+
+try {
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+} catch (e) {
+  console.warn('[Uploads] Warning creating upload dir:', e.message);
 }
 
 const storage = multer.diskStorage({
