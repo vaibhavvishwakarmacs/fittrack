@@ -35,10 +35,28 @@ export const BottomNav = () => {
     },
   ];
 
+  // If already on the active tab, smooth scroll all the way to top (iOS style)
+  const handleTabClick = (e, to, isActive) => {
+    if (isActive) {
+      e.preventDefault();
+      window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+      if (document.documentElement) {
+        document.documentElement.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+      }
+      if (document.body) {
+        document.body.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+      }
+    }
+  };
+
   return (
     <nav
       aria-label="Bottom Navigation"
-      className="fixed bottom-0 left-0 right-0 z-40 bg-dark-900/95 backdrop-blur-2xl border-t border-white/[0.08] shadow-2xl pb-[env(safe-area-inset-bottom,0px)] transition-all"
+      style={{
+        WebkitTransform: 'translate3d(0, 0, 0)',
+        transform: 'translate3d(0, 0, 0)',
+      }}
+      className="fixed bottom-0 inset-x-0 z-50 bg-[#07090e]/95 backdrop-blur-2xl border-t border-white/[0.08] shadow-[0_-12px_35px_rgba(0,0,0,0.85)] pb-[max(env(safe-area-inset-bottom),10px)] will-change-transform contain-layout select-none"
     >
       <div className="max-w-md md:max-w-2xl lg:max-w-4xl mx-auto px-4 h-16 flex items-center justify-around">
         {navItems.map((item) => {
@@ -50,12 +68,13 @@ export const BottomNav = () => {
               <NavLink
                 key={item.to}
                 to={item.to}
+                onClick={(e) => handleTabClick(e, item.to, isActive)}
                 className="relative -top-3 flex flex-col items-center group focus:outline-none"
                 aria-label={item.label}
               >
                 <div
                   className={cn(
-                    'w-13 h-13 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-xl border',
+                    'w-13 h-13 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-xl border cursor-pointer active:scale-95',
                     isActive
                       ? 'bg-lime text-dark-950 border-lime shadow-lime-md scale-105'
                       : 'bg-dark-850 text-slate-300 border-white/10 group-hover:border-lime/40 group-hover:text-white'
@@ -79,10 +98,11 @@ export const BottomNav = () => {
             <NavLink
               key={item.to}
               to={item.to}
-              className={({ isActive }) =>
+              onClick={(e) => handleTabClick(e, item.to, isActive)}
+              className={({ isActive: navActive }) =>
                 cn(
-                  'flex flex-col items-center justify-center py-1.5 px-3 rounded-xl transition-all duration-200 group focus:outline-none',
-                  isActive ? 'text-lime' : 'text-slate-400 hover:text-slate-200'
+                  'flex flex-col items-center justify-center py-1.5 px-3 rounded-xl transition-all duration-200 group focus:outline-none cursor-pointer active:scale-95',
+                  navActive ? 'text-lime' : 'text-slate-400 hover:text-slate-200'
                 )
               }
               aria-label={item.label}
@@ -95,7 +115,7 @@ export const BottomNav = () => {
                   )}
                 />
                 {isActive && (
-                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-lime rounded-full" />
+                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-lime rounded-full shadow-[0_0_6px_rgba(187,244,61,0.8)]" />
                 )}
               </div>
               <span

@@ -6,6 +6,7 @@ import { workoutService } from '../../services/workoutService';
 import { nutritionService } from '../../services/nutritionService';
 import { activityService } from '../../services/activityService';
 import { formatDateToISO, getGreeting } from '../../lib/utils';
+import { fastCache } from '../../lib/cache';
 import { StatCard } from '../../components/common/StatCard';
 import { Button } from '../../components/common/Button';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -35,11 +36,18 @@ export const DashboardPage = () => {
   const navigate = useNavigate();
 
   const today = formatDateToISO();
-  const [isLoading, setIsLoading] = useState(true);
-  const [workouts, setWorkouts] = useState([]);
-  const [nutritionLogs, setNutritionLogs] = useState([]);
-  const [waterMl, setWaterMl] = useState(0);
-  const [activity, setActivity] = useState(null);
+
+  // Instant SWR state: populate synchronously from memory cache if available (0ms loading)
+  const cachedWorkouts = user ? fastCache.get(`workouts:${user.id}`) : null;
+  const cachedDayNut = user ? fastCache.get(`day_nutrition:${user.id}:${today}`) : null;
+  const cachedAct = user ? fastCache.get(`activity:${user.id}:${today}`) : null;
+  const hasCachedData = !!(cachedWorkouts || cachedDayNut || cachedAct);
+
+  const [isLoading, setIsLoading] = useState(!hasCachedData);
+  const [workouts, setWorkouts] = useState(cachedWorkouts || []);
+  const [nutritionLogs, setNutritionLogs] = useState(cachedDayNut?.foodLogs || []);
+  const [waterMl, setWaterMl] = useState(cachedDayNut?.totalWaterMl || 0);
+  const [activity, setActivity] = useState(cachedAct || null);
 
   // Modals state
   const [isFoodModalOpen, setIsFoodModalOpen] = useState(false);
@@ -50,16 +58,15 @@ export const DashboardPage = () => {
   const loadDashboardData = useCallback(async () => {
     if (!user) return;
     try {
-      const [woRes, nutRes, waterRes, actRes] = await Promise.all([
+      const [woRes, dayNutRes, actRes] = await Promise.all([
         workoutService.getWorkouts(user.id),
-        nutritionService.getNutritionLogs(user.id, today),
-        nutritionService.getWaterLogs(user.id, today),
+        nutritionService.getDayNutrition(user.id, today),
         activityService.getActivityByDate(user.id, today),
       ]);
 
       setWorkouts(woRes.data || []);
-      setNutritionLogs(nutRes.data || []);
-      setWaterMl(waterRes.totalMl || 0);
+      setNutritionLogs(dayNutRes.data || []);
+      setWaterMl(dayNutRes.totalWaterMl || 0);
       setActivity(actRes.data || null);
     } catch {
       // ignore

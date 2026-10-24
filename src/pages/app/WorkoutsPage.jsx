@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useWorkoutSession } from '../../contexts/WorkoutSessionContext';
 import { workoutService } from '../../services/workoutService';
+import { fastCache } from '../../lib/cache';
 import { WorkoutCard } from '../../components/workouts/WorkoutCard';
 import { WorkoutEditModal } from '../../components/workouts/WorkoutEditModal';
 import { ConfirmDeleteModal } from '../../components/common/ConfirmDeleteModal';
@@ -16,8 +17,11 @@ export const WorkoutsPage = () => {
   const { user, profile } = useAuth();
   const { success, error: toastError } = useToast();
   const { startSession, hasActiveSavedSession } = useWorkoutSession();
-  const [workouts, setWorkouts] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+
+  // Instant SWR state: populate synchronously from cache (0ms loading)
+  const cachedWorkouts = user ? fastCache.get(`workouts:${user.id}`) : null;
+  const [workouts, setWorkouts] = useState(cachedWorkouts || []);
+  const [isLoading, setIsLoading] = useState(!cachedWorkouts);
   const [filter, setFilter] = useState('all');
 
   // Modals state

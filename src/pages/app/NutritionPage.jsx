@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { nutritionService } from '../../services/nutritionService';
 import { formatDateToISO, formatDisplayDate } from '../../lib/utils';
+import { fastCache } from '../../lib/cache';
 import { MacroRing } from '../../components/nutrition/MacroRing';
 import { WaterTracker } from '../../components/nutrition/WaterTracker';
 import { FoodLoggerModal } from '../../components/nutrition/FoodLoggerModal';
@@ -29,9 +30,15 @@ export const NutritionPage = () => {
   const { user, profile } = useAuth();
   const { success, error: toastError } = useToast();
   const [selectedDate, setSelectedDate] = useState(() => formatDateToISO());
-  const [logs, setLogs] = useState([]);
-  const [waterMl, setWaterMl] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
+
+  // Instant SWR state: populate synchronously from cache (0ms loading)
+  const cachedDay = user ? fastCache.get(`day_nutrition:${user.id}:${selectedDate}`) : null;
+  const cachedLogs = cachedDay?.foodLogs || (user ? fastCache.get(`nutrition:${user.id}:${selectedDate}`) : null);
+  const cachedWater = cachedDay?.totalWaterMl ?? (user ? fastCache.get(`water:${user.id}:${selectedDate}`)?.totalMl : 0);
+
+  const [logs, setLogs] = useState(cachedLogs || []);
+  const [waterMl, setWaterMl] = useState(cachedWater || 0);
+  const [isLoading, setIsLoading] = useState(!cachedLogs);
 
   // Modals state
   const [isFoodModalOpen, setIsFoodModalOpen] = useState(false);
@@ -46,12 +53,9 @@ export const NutritionPage = () => {
   const loadNutrition = useCallback(async () => {
     if (!user) return;
     try {
-      const [nutRes, waterRes] = await Promise.all([
-        nutritionService.getNutritionLogs(user.id, selectedDate),
-        nutritionService.getWaterLogs(user.id, selectedDate),
-      ]);
-      setLogs(nutRes.data || []);
-      setWaterMl(waterRes.totalMl || 0);
+      const dayRes = await nutritionService.getDayNutrition(user.id, selectedDate);
+      setLogs(dayRes.data || []);
+      setWaterMl(dayRes.totalWaterMl || 0);
     } catch {
       // ignore
     } finally {

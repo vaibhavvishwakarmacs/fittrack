@@ -1,26 +1,59 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthLayout } from '../components/layout/AuthLayout';
 import { AppLayout } from '../components/layout/AppLayout';
 import { ProtectedRoute } from './ProtectedRoute';
 import { DashboardSkeleton } from '../components/common/Skeleton';
 
-// Lazy-Loaded Pages for Ultra-Fast Initial PWA Bundle & Instant Page Switching
-const LoginPage = lazy(() => import('../pages/auth/LoginPage').then((m) => ({ default: m.LoginPage })));
-const SignupPage = lazy(() => import('../pages/auth/SignupPage').then((m) => ({ default: m.SignupPage })));
-const OnboardingPage = lazy(() => import('../pages/onboarding/OnboardingPage').then((m) => ({ default: m.OnboardingPage })));
+// Explicit loaders for idle prefetching (instant tab transitions)
+const loadLoginPage = () => import('../pages/auth/LoginPage').then((m) => ({ default: m.LoginPage }));
+const loadSignupPage = () => import('../pages/auth/SignupPage').then((m) => ({ default: m.SignupPage }));
+const loadOnboardingPage = () => import('../pages/onboarding/OnboardingPage').then((m) => ({ default: m.OnboardingPage }));
 
-const DashboardPage = lazy(() => import('../pages/app/DashboardPage').then((m) => ({ default: m.DashboardPage })));
-const CalendarPage = lazy(() => import('../pages/app/CalendarPage').then((m) => ({ default: m.CalendarPage })));
-const WorkoutsPage = lazy(() => import('../pages/app/WorkoutsPage').then((m) => ({ default: m.WorkoutsPage })));
-const NutritionPage = lazy(() => import('../pages/app/NutritionPage').then((m) => ({ default: m.NutritionPage })));
-const ActivityPage = lazy(() => import('../pages/app/ActivityPage').then((m) => ({ default: m.ActivityPage })));
-const ProfilePage = lazy(() => import('../pages/app/ProfilePage').then((m) => ({ default: m.ProfilePage })));
-const SettingsPage = lazy(() => import('../pages/app/SettingsPage').then((m) => ({ default: m.SettingsPage })));
-const WorkoutSessionPage = lazy(() => import('../pages/app/WorkoutSessionPage').then((m) => ({ default: m.WorkoutSessionPage })));
-const NotFoundPage = lazy(() => import('../pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })));
+const loadDashboardPage = () => import('../pages/app/DashboardPage').then((m) => ({ default: m.DashboardPage }));
+const loadCalendarPage = () => import('../pages/app/CalendarPage').then((m) => ({ default: m.CalendarPage }));
+const loadWorkoutsPage = () => import('../pages/app/WorkoutsPage').then((m) => ({ default: m.WorkoutsPage }));
+const loadNutritionPage = () => import('../pages/app/NutritionPage').then((m) => ({ default: m.NutritionPage }));
+const loadActivityPage = () => import('../pages/app/ActivityPage').then((m) => ({ default: m.ActivityPage }));
+const loadProfilePage = () => import('../pages/app/ProfilePage').then((m) => ({ default: m.ProfilePage }));
+const loadSettingsPage = () => import('../pages/app/SettingsPage').then((m) => ({ default: m.SettingsPage }));
+const loadWorkoutSessionPage = () => import('../pages/app/WorkoutSessionPage').then((m) => ({ default: m.WorkoutSessionPage }));
+const loadNotFoundPage = () => import('../pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage }));
+
+const LoginPage = lazy(loadLoginPage);
+const SignupPage = lazy(loadSignupPage);
+const OnboardingPage = lazy(loadOnboardingPage);
+const DashboardPage = lazy(loadDashboardPage);
+const CalendarPage = lazy(loadCalendarPage);
+const WorkoutsPage = lazy(loadWorkoutsPage);
+const NutritionPage = lazy(loadNutritionPage);
+const ActivityPage = lazy(loadActivityPage);
+const ProfilePage = lazy(loadProfilePage);
+const SettingsPage = lazy(loadSettingsPage);
+const WorkoutSessionPage = lazy(loadWorkoutSessionPage);
+const NotFoundPage = lazy(loadNotFoundPage);
 
 export const AppRoutes = () => {
+  // Eagerly prefetch main app chunks during idle time for 0ms tab switches
+  useEffect(() => {
+    const prefetch = () => {
+      loadDashboardPage();
+      loadWorkoutsPage();
+      loadNutritionPage();
+      loadProfilePage();
+      loadCalendarPage();
+      loadActivityPage();
+    };
+
+    if (typeof window !== 'undefined') {
+      if ('requestIdleCallback' in window) {
+        window.requestIdleCallback(prefetch, { timeout: 2000 });
+      } else {
+        setTimeout(prefetch, 400);
+      }
+    }
+  }, []);
+
   return (
     <Suspense fallback={<DashboardSkeleton />}>
       <Routes>

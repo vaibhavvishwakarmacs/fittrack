@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { activityService } from '../../services/activityService';
 import { formatDateToISO, formatDistance } from '../../lib/utils';
+import { fastCache } from '../../lib/cache';
 import { StatCard } from '../../components/common/StatCard';
 import { Button } from '../../components/common/Button';
 import { StepLoggerModal } from '../../components/activity/StepLoggerModal';
@@ -28,12 +29,14 @@ import {
 
 export const ActivityPage = () => {
   const { user, profile } = useAuth();
-  const [todayActivity, setTodayActivity] = useState(null);
-  const [weeklyLogs, setWeeklyLogs] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
   const today = formatDateToISO();
+
+  // Instant SWR state: populate synchronously from cache (0ms loading)
+  const cachedToday = user ? fastCache.get(`activity:${user.id}:${today}`) : null;
+  const [todayActivity, setTodayActivity] = useState(cachedToday || null);
+  const [weeklyLogs, setWeeklyLogs] = useState([]);
+  const [isLoading, setIsLoading] = useState(!cachedToday);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const targetSteps = profile?.daily_step_target || 10000;
   const unit = profile?.unit_system || 'metric';
 

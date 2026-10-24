@@ -25,7 +25,6 @@
     overscroll-behavior-x: none;
     overscroll-behavior-y: auto;
     touch-action: pan-y;
-    position: relative;
   }
 
   #root {
