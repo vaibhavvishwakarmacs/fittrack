@@ -122,4 +122,42 @@ router.post('/', authMiddleware, upload.single('image'), async (req, res) => {
   }
 });
 
+// GET /api/upload/base64?url=...
+// Proxy endpoint to convert Cloudinary, remote CDN, or local images into base64 data URLs
+// to prevent html-to-image canvas skipping or blank image renders on social share cards
+router.get('/base64', async (req, res) => {
+  try {
+    const targetUrl = req.query.url;
+    if (!targetUrl) {
+      return res.status(400).json({ error: 'Missing url query parameter' });
+    }
+
+    // Local /uploads/ file
+    if (targetUrl.startsWith('/uploads/') || targetUrl.includes('/uploads/')) {
+      const filename = path.basename(targetUrl.split('?')[0]);
+      const filePath = path.join(localUploadDir, filename);
+      if (fs.existsSync(filePath)) {
+        const ext = path.extname(filename).toLowerCase();
+        const mimeType = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
+        const fileBuf = fs.readFileSync(filePath);
+        return res.json({ dataUrl: `data:${mimeType};base64,${fileBuf.toString('base64')}` });
+      }
+    }
+
+    // Remote HTTP / HTTPS image (e.g. Cloudinary)
+    const fetchRes = await fetch(targetUrl);
+    if (!fetchRes.ok) {
+      return res.status(fetchRes.status).json({ error: `Image fetch failed with status ${fetchRes.status}` });
+    }
+    const contentType = fetchRes.headers.get('content-type') || 'image/jpeg';
+    const arrayBuf = await fetchRes.arrayBuffer();
+    const b64 = Buffer.from(arrayBuf).toString('base64');
+    return res.json({ dataUrl: `data:${contentType};base64,${b64}` });
+  } catch (err) {
+    console.error('[Upload Base64 Proxy] Error:', err.message);
+    return res.status(500).json({ error: 'Failed to convert image to base64' });
+  }
+});
+
 export default router;
+

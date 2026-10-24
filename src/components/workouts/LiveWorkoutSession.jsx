@@ -109,7 +109,41 @@ export const LiveWorkoutSession = ({ isOpen, onClose, onWorkoutSaved }) => {
   // 6. Finish & Discard modals
   const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
   const [isDiscardModalOpen, setIsDiscardModalOpen] = useState(false);
+  const [exerciseToDeleteIndex, setExerciseToDeleteIndex] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // 7. Previous Week Workout Progressive Overload Continuity
+  const [pastWorkouts, setPastWorkouts] = useState([]);
+
+  useEffect(() => {
+    if (user && isOpen && !isSetupDone) {
+      workoutService.getWorkouts(user.id).then((res) => {
+        if (res?.data) {
+          setPastWorkouts(res.data);
+        }
+      });
+    }
+  }, [user, isOpen, isSetupDone]);
+
+  const todayDayName = useMemo(() => {
+    return new Date().toLocaleDateString('en-US', { weekday: 'long' });
+  }, []);
+
+  // Find previous workout on the same day of the week (e.g. previous Monday)
+  const previousWeekWorkout = useMemo(() => {
+    if (!pastWorkouts || pastWorkouts.length === 0) return null;
+    const todayDateStr = new Date().toDateString();
+
+    return (
+      pastWorkouts.find((w) => {
+        if (!w.exercises || w.exercises.length === 0) return false;
+        const wDate = new Date(w.started_at || w.createdAt || Date.now());
+        if (wDate.toDateString() === todayDateStr) return false;
+        const wDay = w.day_of_week || wDate.toLocaleDateString('en-US', { weekday: 'long' });
+        return wDay === todayDayName;
+      }) || null
+    );
+  }, [pastWorkouts, todayDayName]);
 
   // Screen WakeLock for iOS Safari / Mobile
   useEffect(() => {
@@ -367,6 +401,77 @@ export const LiveWorkoutSession = ({ isOpen, onClose, onWorkoutSaved }) => {
   const handleAddNewExerciseMovement = () => {
     setPickerTargetMuscle(targetMuscles[0] || 'chest');
     setIsVariationPickerOpen(true);
+  };
+
+  // Delete an individual movement from today's workout
+  const handleDeleteExercise = (indexToDelete) => {
+    playButtonTapSound();
+    if (exercises.length <= 1) {
+      toastError('Your session must have at least one movement.');
+      return;
+    }
+
+    const exName = exercises[indexToDelete]?.name || 'Movement';
+    const updated = exercises.filter((_, idx) => idx !== indexToDelete);
+    setExercises(updated);
+
+    if (activeExerciseIndex >= updated.length) {
+      setActiveExerciseIndex(Math.max(0, updated.length - 1));
+    } else if (activeExerciseIndex === indexToDelete) {
+      setActiveExerciseIndex(Math.max(0, Math.min(indexToDelete, updated.length - 1)));
+    }
+
+    success(`Removed "${exName}" from today's session.`);
+  };
+
+  // Load previous week's matching workout (same movements + pre-filled weights & reps)
+  const handleLoadPreviousWeekWorkout = (pastWorkout) => {
+    playButtonTapSound();
+    if (!pastWorkout || !pastWorkout.exercises || pastWorkout.exercises.length === 0) return;
+
+    const loaded = pastWorkout.exercises.map((ex, exIdx) => {
+      const sets = (ex.sets || []).map((s, sIdx) => {
+        const wt = s.weight_kg !== undefined ? Number(s.weight_kg) : s.weightKg !== undefined ? Number(s.weightKg) : 0;
+        const reps = Number(s.reps) || 10;
+        return {
+          setNumber: s.set_number || s.setNumber || sIdx + 1,
+          weightKg: wt,
+          reps: reps,
+          lastWeekWeightKg: wt,
+          lastWeekReps: reps,
+          support: s.support || 'normal',
+          isCompleted: false, // Starts uncompleted for today's workout
+          completedAt: null,
+        };
+      });
+
+      return {
+        muscle: ex.exercise_category || ex.category || 'chest',
+        name: ex.exercise_name || ex.name,
+        target: (ex.target_muscles || []).join(', ') || ex.target || 'Hypertrophy',
+        tips: ex.tips || [],
+        image: ex.image_url || ex.imageUrl || null,
+        defaultRestSec: 90,
+        sets: sets.length > 0 ? sets : [
+          { setNumber: 1, weightKg: 0, reps: 10, isCompleted: false },
+          { setNumber: 2, weightKg: 0, reps: 10, isCompleted: false },
+          { setNumber: 3, weightKg: 0, reps: 10, isCompleted: false },
+        ],
+      };
+    });
+
+    setSessionTitle(pastWorkout.title || `${todayDayName} Routine`);
+    const muscles = pastWorkout.target_muscles || pastWorkout.targetMuscles || [];
+    if (muscles.length > 0) setTargetMuscles(muscles);
+    setExercises(loaded);
+    setActiveExerciseIndex(0);
+    setIsSetupDone(true);
+    setSessionStartTimeMs(Date.now());
+    setTotalPausedMs(0);
+    setIsPaused(false);
+    setPausedAtMs(null);
+
+    success(`Loaded ${pastWorkout.title}! Previous weights are pre-filled for progressive overload.`);
   };
 
   // Rest Timer handlers
@@ -650,6 +755,57 @@ export const LiveWorkoutSession = ({ isOpen, onClose, onWorkoutSaved }) => {
               </div>
             </div>
 
+            {/* Smart Continuity: Repeat Previous Week's Same-Day Workout */}
+            {previousWeekWorkout && (
+              <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-br from-lime/15 via-emerald-950/40 to-dark-900 border border-lime/40 shadow-[0_0_25px_rgba(187,244,61,0.12)] space-y-3 animate-in fade-in">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="px-2.5 py-0.5 rounded-full bg-lime text-dark-950 font-black text-[10px] uppercase tracking-wider shadow-lime-sm">
+                        Repeat {todayDayName}'s Workout?
+                      </span>
+                      <span className="text-xs text-slate-400 font-mono">
+                        {new Date(previousWeekWorkout.started_at || previousWeekWorkout.createdAt || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </span>
+                    </div>
+                    <h3 className="text-lg sm:text-xl font-black text-white tracking-tight">
+                      {previousWeekWorkout.title}
+                    </h3>
+                    <p className="text-xs text-slate-300 mt-0.5">
+                      {previousWeekWorkout.exercises.length} movements • {(previousWeekWorkout.total_volume_kg || previousWeekWorkout.totalVolumeKg || 0).toLocaleString()} {unit} volume logged last time
+                    </p>
+                  </div>
+
+                  <div className="w-10 h-10 rounded-2xl bg-lime/20 text-lime border border-lime/30 flex items-center justify-center shrink-0">
+                    <RotateCcw className="w-5 h-5" />
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5 py-1">
+                  {previousWeekWorkout.exercises.map((ex, idx) => (
+                    <span key={idx} className="text-[10px] px-2.5 py-0.5 rounded-lg bg-white/10 text-slate-200 font-medium border border-white/5">
+                      {ex.exercise_name || ex.name}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="pt-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                  <Button
+                    variant="primary"
+                    size="md"
+                    onClick={() => handleLoadPreviousWeekWorkout(previousWeekWorkout)}
+                    leftIcon={<RotateCcw className="w-4 h-4" />}
+                    className="font-black text-xs justify-center shadow-lime-sm"
+                  >
+                    Load Same Movements &amp; Weights
+                  </Button>
+                  <span className="text-[11px] text-slate-400">
+                    Pre-fills movements with last week's weights &amp; reps so you only adjust for progressive overload!
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Workout Split Dropdown */}
             <div className="rounded-3xl bg-white/[0.04] border border-white/10 p-4 sm:p-6 space-y-3 backdrop-blur-xl">
               <div>
@@ -771,24 +927,47 @@ export const LiveWorkoutSession = ({ isOpen, onClose, onWorkoutSaved }) => {
                 const isActive = activeExerciseIndex === idx;
                 const completedSets = ex.sets.filter((s) => s.isCompleted).length;
                 return (
-                  <button
+                  <div
                     key={idx}
-                    onClick={() => setActiveExerciseIndex(idx)}
-                    className={`px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 shrink-0 ${
+                    className={`rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center shrink-0 border ${
                       isActive
-                        ? 'bg-lime text-dark-950 font-black shadow-lime-sm scale-105'
-                        : 'bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/10'
+                        ? 'bg-lime text-dark-950 font-black border-lime shadow-lime-sm scale-105'
+                        : 'bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border-white/10'
                     }`}
                   >
-                    <span>{idx + 1}. {ex.name}</span>
-                    <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded-md font-mono ${
-                        isActive ? 'bg-dark-950/20 text-dark-950 font-black' : 'bg-white/10 text-slate-400'
-                      }`}
+                    <button
+                      type="button"
+                      onClick={() => setActiveExerciseIndex(idx)}
+                      className="px-3.5 py-2 sm:px-4 sm:py-2.5 flex items-center gap-2 cursor-pointer"
                     >
-                      {completedSets}/{ex.sets.length}
-                    </span>
-                  </button>
+                      <span>{idx + 1}. {ex.name}</span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded-md font-mono ${
+                          isActive ? 'bg-dark-950/20 text-dark-950 font-black' : 'bg-white/10 text-slate-400'
+                        }`}
+                      >
+                        {completedSets}/{ex.sets.length}
+                      </span>
+                    </button>
+                    {exercises.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExerciseToDeleteIndex(idx);
+                        }}
+                        className={`pr-2.5 pl-0.5 py-2 transition-colors cursor-pointer ${
+                          isActive
+                            ? 'text-dark-950/60 hover:text-dark-950'
+                            : 'text-slate-500 hover:text-rose-400'
+                        }`}
+                        title={`Delete ${ex.name} from today's session`}
+                        aria-label={`Delete ${ex.name}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 );
               })}
 
@@ -850,6 +1029,18 @@ export const LiveWorkoutSession = ({ isOpen, onClose, onWorkoutSaved }) => {
                     >
                       Switch
                     </Button>
+
+                    {exercises.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setExerciseToDeleteIndex(activeExerciseIndex)}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 active:scale-95 border border-rose-500/30 text-rose-400 text-xs font-bold transition-all shadow-[0_0_10px_rgba(244,63,94,0.15)] cursor-pointer"
+                        title="Delete this movement from today's workout"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Delete</span>
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -991,6 +1182,11 @@ export const LiveWorkoutSession = ({ isOpen, onClose, onWorkoutSaved }) => {
                             }}
                             className="w-full bg-[#0a0d14] border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white font-mono font-bold text-center focus:outline-none focus:border-lime"
                           />
+                          {set.lastWeekWeightKg !== undefined && set.lastWeekWeightKg > 0 && (
+                            <span className="text-[9px] text-lime font-mono font-bold block text-center mt-0.5 truncate" title={`Previous week: ${set.lastWeekWeightKg} ${unit}`}>
+                              Prev: {set.lastWeekWeightKg} {unit}
+                            </span>
+                          )}
                         </div>
 
                         <div className="col-span-3">
@@ -1014,6 +1210,11 @@ export const LiveWorkoutSession = ({ isOpen, onClose, onWorkoutSaved }) => {
                             }}
                             className="w-full bg-[#0a0d14] border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white font-mono font-bold text-center focus:outline-none focus:border-lime"
                           />
+                          {set.lastWeekReps !== undefined && set.lastWeekReps > 0 && (
+                            <span className="text-[9px] text-slate-400 font-mono block text-center mt-0.5 truncate" title={`Previous week: ${set.lastWeekReps} reps`}>
+                              Prev: {set.lastWeekReps} reps
+                            </span>
+                          )}
                         </div>
 
                         <div className="col-span-2">
@@ -1134,9 +1335,16 @@ export const LiveWorkoutSession = ({ isOpen, onClose, onWorkoutSaved }) => {
                         <div className="grid grid-cols-12 gap-2 items-center">
                           {/* Weight input - Direct decimal keypad, no stuck 0 */}
                           <div className="col-span-4">
-                            <label className="text-[9px] uppercase font-bold text-slate-400 block mb-0.5">
-                              Weight ({unit})
-                            </label>
+                            <div className="flex items-center justify-between mb-0.5">
+                              <label className="text-[9px] uppercase font-bold text-slate-400 block">
+                                Weight ({unit})
+                              </label>
+                              {set.lastWeekWeightKg !== undefined && set.lastWeekWeightKg > 0 && (
+                                <span className="text-[9px] text-lime font-mono font-bold" title="Last week weight">
+                                  Prev: {set.lastWeekWeightKg}
+                                </span>
+                              )}
+                            </div>
                             <input
                               type="text"
                               inputMode="decimal"
@@ -1161,9 +1369,16 @@ export const LiveWorkoutSession = ({ isOpen, onClose, onWorkoutSaved }) => {
 
                           {/* Reps input - Direct numeric keypad, no stuck 0 */}
                           <div className="col-span-4">
-                            <label className="text-[9px] uppercase font-bold text-slate-400 block mb-0.5">
-                              Reps
-                            </label>
+                            <div className="flex items-center justify-between mb-0.5">
+                              <label className="text-[9px] uppercase font-bold text-slate-400 block">
+                                Reps
+                              </label>
+                              {set.lastWeekReps !== undefined && set.lastWeekReps > 0 && (
+                                <span className="text-[9px] text-slate-400 font-mono font-bold" title="Last week reps">
+                                  Prev: {set.lastWeekReps}
+                                </span>
+                              )}
+                            </div>
                             <input
                               type="text"
                               inputMode="numeric"
@@ -1365,6 +1580,21 @@ export const LiveWorkoutSession = ({ isOpen, onClose, onWorkoutSaved }) => {
         onConfirm={handleConfirmDiscard}
         title="Discard Workout?"
         message="Are you sure you want to discard this workout? Current sets and timing will not be saved."
+      />
+
+      {/* Delete Movement Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={exerciseToDeleteIndex !== null}
+        onClose={() => setExerciseToDeleteIndex(null)}
+        onConfirm={() => {
+          if (exerciseToDeleteIndex !== null) {
+            handleDeleteExercise(exerciseToDeleteIndex);
+            setExerciseToDeleteIndex(null);
+          }
+        }}
+        title="Delete Movement?"
+        itemName={exerciseToDeleteIndex !== null ? exercises[exerciseToDeleteIndex]?.name : ''}
+        message={`Are you sure you want to remove "${exerciseToDeleteIndex !== null ? exercises[exerciseToDeleteIndex]?.name : 'this movement'}" from today's session? Any sets entered for this movement will be removed.`}
       />
     </div>
   );

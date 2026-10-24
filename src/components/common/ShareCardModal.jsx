@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Modal } from './Modal';
 import { Button } from './Button';
 import { toPng, toBlob } from 'html-to-image';
@@ -16,12 +16,76 @@ import {
   Droplets,
   Calendar,
   Check,
+  Loader2,
 } from 'lucide-react';
+
+// Converts remote/CORS images into inline base64 data URLs to prevent html-to-image blank canvas bugs
+const convertImageToBase64 = async (url) => {
+  if (!url) return null;
+  if (url.startsWith('data:')) return url;
+
+  // 1. First attempt: Server-side proxy which bypasses all browser CORS restrictions and canvas taint
+  try {
+    const apiBase = import.meta.env.VITE_API_URL || '/api';
+    const proxyUrl = `${apiBase}/upload/base64?url=${encodeURIComponent(url)}`;
+    const res = await fetch(proxyUrl);
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.dataUrl && data.dataUrl.startsWith('data:')) {
+        return data.dataUrl;
+      }
+    }
+  } catch (err) {
+    // Fall back to client-side canvas
+  }
+
+  // 2. Client-side canvas conversion with cache-busting
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || img.width;
+        canvas.height = img.naturalHeight || img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+        resolve(dataUrl);
+      } catch {
+        fetchBlobAsBase64(url).then(resolve);
+      }
+    };
+
+    img.onerror = () => {
+      fetchBlobAsBase64(url).then(resolve);
+    };
+
+    const separator = url.includes('?') ? '&' : '?';
+    img.src = `${url}${separator}t=${Date.now()}`;
+  });
+};
+
+const fetchBlobAsBase64 = async (url) => {
+  try {
+    const res = await fetch(url, { mode: 'cors' });
+    const blob = await res.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+};
 
 export const ShareCardModal = ({
   isOpen,
   onClose,
-  type = 'meal', // 'meal' | 'workout' | 'daily'
+  type = 'meal', // 'meal' | 'workout' | 'daily' | 'checkin'
   data = {},
   unit = 'kg',
 }) => {
@@ -29,16 +93,59 @@ export const ShareCardModal = ({
   const { success, error: toastError } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasCopied, setHasCopied] = useState(false);
+  const [base64Photo, setBase64Photo] = useState(null);
+
+  const rawPhoto = data?.photo_url || data?.photoUrl;
+  const isPhotoLoading = Boolean(rawPhoto) && !base64Photo;
+
+  useEffect(() => {
+    if (!isOpen || !rawPhoto) {
+      setBase64Photo(null);
+      return;
+    }
+
+    if (rawPhoto.startsWith('data:')) {
+      setBase64Photo(rawPhoto);
+      return;
+    }
+
+    let isMounted = true;
+    convertImageToBase64(rawPhoto).then((res) => {
+      if (isMounted && res) {
+        setBase64Photo(res);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, rawPhoto]);
 
   if (!isOpen || !data) return null;
+
+  const prepareForCapture = async () => {
+    if (rawPhoto && !base64Photo) {
+      const converted = await convertImageToBase64(rawPhoto);
+      if (converted) {
+        setBase64Photo(converted);
+        const imgEl = cardRef.current?.querySelector('img');
+        if (imgEl) {
+          imgEl.src = converted;
+        }
+      }
+      await new Promise((r) => setTimeout(r, 120));
+    }
+  };
 
   const handleShare = async () => {
     if (!cardRef.current) return;
     setIsGenerating(true);
     try {
+      await prepareForCapture();
       const blob = await toBlob(cardRef.current, {
         quality: 0.95,
         pixelRatio: 2,
+        cacheBust: true,
       });
 
       if (!blob) throw new Error('Could not render image');
@@ -55,7 +162,7 @@ export const ShareCardModal = ({
         success('Shared successfully!');
       } else {
         // Fallback: Trigger download
-        const dataUrl = await toPng(cardRef.current, { quality: 0.95, pixelRatio: 2 });
+        const dataUrl = await toPng(cardRef.current, { quality: 0.95, pixelRatio: 2, cacheBust: true });
         const link = document.createElement('a');
         link.download = `FitTrack-${type}-${Date.now()}.png`;
         link.href = dataUrl;
@@ -75,7 +182,8 @@ export const ShareCardModal = ({
     if (!cardRef.current) return;
     setIsGenerating(true);
     try {
-      const dataUrl = await toPng(cardRef.current, { quality: 0.95, pixelRatio: 2 });
+      await prepareForCapture();
+      const dataUrl = await toPng(cardRef.current, { quality: 0.95, pixelRatio: 2, cacheBust: true });
       const link = document.createElement('a');
       link.download = `FitTrack-${type}-${Date.now()}.png`;
       link.href = dataUrl;
@@ -92,7 +200,8 @@ export const ShareCardModal = ({
     if (!cardRef.current) return;
     setIsGenerating(true);
     try {
-      const blob = await toBlob(cardRef.current, { quality: 0.95, pixelRatio: 2 });
+      await prepareForCapture();
+      const blob = await toBlob(cardRef.current, { quality: 0.95, pixelRatio: 2, cacheBust: true });
       if (blob && navigator.clipboard && navigator.clipboard.write) {
         await navigator.clipboard.write([
           new ClipboardItem({ 'image/png': blob }),
@@ -152,14 +261,22 @@ export const ShareCardModal = ({
             {type === 'meal' && (
               <div className="py-3.5 space-y-3">
                 {/* Meal Photo if Available */}
-                {(data.photo_url || data.photoUrl) && (
-                  <div className="relative rounded-2xl overflow-hidden border border-white/10 shadow-lg">
-                    <img
-                      src={data.photo_url || data.photoUrl}
-                      alt={data.food_name || data.foodName}
-                      className="w-full h-44 object-cover"
-                      crossOrigin="anonymous"
-                    />
+                {rawPhoto && (
+                  <div className="relative rounded-2xl overflow-hidden border border-white/10 shadow-lg bg-dark-900 min-h-[176px] flex items-center justify-center">
+                    {base64Photo ? (
+                      <img
+                        src={base64Photo}
+                        alt={data.food_name || data.foodName || 'Meal photo'}
+                        className="w-full h-44 object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-44 flex flex-col items-center justify-center gap-2 bg-[#0c1018]">
+                        <Loader2 className="w-6 h-6 text-lime animate-spin" />
+                        <span className="text-[11px] text-slate-400 font-semibold tracking-wide">
+                          Preparing meal photo...
+                        </span>
+                      </div>
+                    )}
                     <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-amber-400 font-bold text-[10px] uppercase border border-white/10">
                       {data.meal_type || data.mealType || 'Meal'}
                     </div>
@@ -210,6 +327,28 @@ export const ShareCardModal = ({
 
             {type === 'workout' && (
               <div className="py-3.5 space-y-3">
+                {rawPhoto && (
+                  <div className="relative rounded-2xl overflow-hidden border border-white/10 shadow-lg bg-dark-900 min-h-[176px] flex items-center justify-center">
+                    {base64Photo ? (
+                      <img
+                        src={base64Photo}
+                        alt="Workout photo"
+                        className="w-full h-44 object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-44 flex flex-col items-center justify-center gap-2 bg-[#0c1018]">
+                        <Loader2 className="w-6 h-6 text-lime animate-spin" />
+                        <span className="text-[11px] text-slate-400 font-semibold tracking-wide">
+                          Preparing workout photo...
+                        </span>
+                      </div>
+                    )}
+                    <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-lime font-bold text-[10px] uppercase border border-white/10">
+                      {data.category || 'Workout'}
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="px-2 py-0.5 rounded-full bg-lime/10 text-lime border border-lime/30 text-[10px] font-bold uppercase">
@@ -279,14 +418,22 @@ export const ShareCardModal = ({
             {type === 'checkin' && (
               <div className="py-3.5 space-y-3">
                 {/* Progress Photo if Available */}
-                {(data.photo_url || data.photoUrl) && (
-                  <div className="relative rounded-2xl overflow-hidden border border-white/10 shadow-lg">
-                    <img
-                      src={data.photo_url || data.photoUrl}
-                      alt="Body check-in progress photo"
-                      className="w-full h-48 object-cover"
-                      crossOrigin="anonymous"
-                    />
+                {rawPhoto && (
+                  <div className="relative rounded-2xl overflow-hidden border border-white/10 shadow-lg bg-dark-900 min-h-[192px] flex items-center justify-center">
+                    {base64Photo ? (
+                      <img
+                        src={base64Photo}
+                        alt="Body check-in progress photo"
+                        className="w-full h-48 object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-48 flex flex-col items-center justify-center gap-2 bg-[#0c1018]">
+                        <Loader2 className="w-6 h-6 text-purple-400 animate-spin" />
+                        <span className="text-[11px] text-slate-400 font-semibold tracking-wide">
+                          Preparing progress photo...
+                        </span>
+                      </div>
+                    )}
                     <div className="absolute top-2 left-2 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-purple-300 font-bold text-[10px] uppercase border border-white/10">
                       Weigh-in &amp; Progress
                     </div>
@@ -385,16 +532,17 @@ export const ShareCardModal = ({
             variant="primary"
             onClick={handleShare}
             isLoading={isGenerating}
-            leftIcon={<Share2 className="w-4 h-4" />}
+            disabled={isPhotoLoading}
+            leftIcon={isPhotoLoading ? <Loader2 className="w-4 h-4 animate-spin text-dark-950" /> : <Share2 className="w-4 h-4" />}
             className="justify-center font-bold text-xs py-2.5 shadow-lime-sm col-span-2 sm:col-span-1"
           >
-            Share Photo
+            {isPhotoLoading ? 'Loading Photo...' : 'Share Photo'}
           </Button>
 
           <Button
             variant="secondary"
             onClick={handleDownload}
-            disabled={isGenerating}
+            disabled={isGenerating || isPhotoLoading}
             leftIcon={<Download className="w-4 h-4" />}
             className="justify-center font-bold text-xs py-2.5"
           >
@@ -404,7 +552,7 @@ export const ShareCardModal = ({
           <Button
             variant="ghost"
             onClick={handleCopy}
-            disabled={isGenerating}
+            disabled={isGenerating || isPhotoLoading}
             leftIcon={hasCopied ? <Check className="w-4 h-4 text-lime" /> : <Copy className="w-4 h-4" />}
             className="justify-center font-bold text-xs py-2.5"
           >
@@ -415,3 +563,4 @@ export const ShareCardModal = ({
     </Modal>
   );
 };
+
