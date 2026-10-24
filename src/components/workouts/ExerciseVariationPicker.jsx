@@ -56,8 +56,8 @@ export const ExerciseVariationPicker = ({
 
     setIsUploading(true);
     try {
-      // Use api.upload which handles multipart formData correctly
-      const res = await api.upload(file);
+      // Use api.upload which handles multipart formData correctly into GYM/<user>/gym folder
+      const res = await api.upload(file, { category: 'gym' });
       if (res && res.url) {
         setNewImageUrl(res.url);
       }

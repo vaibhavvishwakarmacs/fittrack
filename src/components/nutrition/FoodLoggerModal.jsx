@@ -6,7 +6,8 @@ import { nutritionService } from '../../services/nutritionService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { formatDateToISO } from '../../lib/utils';
-import { Sparkles, Plus, Flame } from 'lucide-react';
+import { Sparkles, Plus, Flame, Camera, Loader2, X, Image as ImageIcon } from 'lucide-react';
+import { api } from '../../lib/api';
 
 const PRESET_MEALS = [
   { name: 'Grilled Chicken & Rice', mealType: 'lunch', serving: '200g bowl', cal: 460, p: 44, c: 48, f: 8 },
@@ -35,6 +36,8 @@ export const FoodLoggerModal = ({
   const [protein, setProtein] = useState('');
   const [carbs, setCarbs] = useState('');
   const [fat, setFat] = useState('');
+  const [foodPhotoUrl, setFoodPhotoUrl] = useState('');
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleApplyPreset = (preset) => {
@@ -45,6 +48,24 @@ export const FoodLoggerModal = ({
     setProtein(preset.p);
     setCarbs(preset.c);
     setFat(preset.f);
+  };
+
+  const handlePhotoChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingPhoto(true);
+    try {
+      // Uploads directly to Cloudinary folder: GYM/<user>/food
+      const res = await api.upload(file, { category: 'food' });
+      if (res && res.url) {
+        setFoodPhotoUrl(res.url);
+      }
+    } catch (err) {
+      toastError(err.message || 'Failed to upload food photo');
+    } finally {
+      setIsUploadingPhoto(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -73,6 +94,7 @@ export const FoodLoggerModal = ({
         proteinG: Number(protein) || 0,
         carbsG: Number(carbs) || 0,
         fatG: Number(fat) || 0,
+        photoUrl: foodPhotoUrl || null,
       });
 
       if (error) {
@@ -86,6 +108,7 @@ export const FoodLoggerModal = ({
         setProtein('');
         setCarbs('');
         setFat('');
+        setFoodPhotoUrl('');
       }
     } catch (err) {
       toastError(err?.message || 'Error saving food entry');
@@ -99,7 +122,7 @@ export const FoodLoggerModal = ({
       isOpen={isOpen}
       onClose={onClose}
       title="Log Meal or Food"
-      description="Record calories and macronutrients towards your daily target"
+      description="Record calories, macros, and photo into GYM food folder"
       maxWidth="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4 text-left">
@@ -111,7 +134,7 @@ export const FoodLoggerModal = ({
             onChange={(e) => setDate(e.target.value)}
           />
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5 uppercase tracking-wider">
+            <label className="block text-xs font-bold text-slate-300 mb-1.5 uppercase tracking-wider">
               Meal Category
             </label>
             <select
@@ -128,7 +151,7 @@ export const FoodLoggerModal = ({
         </div>
 
         <div>
-          <label className="block text-[11px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider flex items-center gap-1.5">
+          <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider flex items-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5 text-lime" />
             <span>Frequent Fitness Meals (Quick Tap)</span>
           </label>
@@ -169,6 +192,7 @@ export const FoodLoggerModal = ({
           </div>
         </div>
 
+        {/* Calories and Macros */}
         <div className="p-3.5 rounded-2xl bg-dark-950 border border-white/10 space-y-3">
           <Input
             label="Total Calories (kcal)"
@@ -208,6 +232,52 @@ export const FoodLoggerModal = ({
           </div>
         </div>
 
+        {/* Food Photo Upload Section */}
+        <div className="p-3.5 rounded-2xl bg-dark-850/80 border border-white/10 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+              <Camera className="w-4 h-4 text-lime" />
+              <span>Meal Photo (Optional)</span>
+            </label>
+            <span className="text-[10px] text-slate-400 font-mono">
+              Saved in GYM/food
+            </span>
+          </div>
+
+          {foodPhotoUrl ? (
+            <div className="relative inline-block mt-1">
+              <img
+                src={foodPhotoUrl}
+                alt="Meal preview"
+                className="w-24 h-24 rounded-2xl object-cover border border-lime/40 shadow-md"
+              />
+              <button
+                type="button"
+                onClick={() => setFoodPhotoUrl('')}
+                className="absolute -top-2 -right-2 p-1 rounded-full bg-rose-500 text-white shadow-md hover:bg-rose-600 transition-colors"
+                title="Remove photo"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-dark-900 hover:bg-dark-800 border border-white/10 text-xs font-bold text-slate-300 hover:text-white cursor-pointer active:scale-95 transition-all">
+                <Camera className="w-4 h-4 text-lime" />
+                <span>{isUploadingPhoto ? 'Uploading to Cloudinary...' : 'Add Meal Photo'}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoChange}
+                  disabled={isUploadingPhoto}
+                  className="hidden"
+                />
+              </label>
+              {isUploadingPhoto && <Loader2 className="w-4 h-4 text-lime animate-spin" />}
+            </div>
+          )}
+        </div>
+
         <div className="pt-2 flex justify-between items-center">
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
@@ -216,7 +286,7 @@ export const FoodLoggerModal = ({
             type="submit"
             variant="primary"
             size="lg"
-            isLoading={isSubmitting}
+            isLoading={isSubmitting || isUploadingPhoto}
             leftIcon={<Plus className="w-4 h-4" />}
           >
             Save Meal

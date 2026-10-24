@@ -33,7 +33,7 @@ router.get('/', authMiddleware, async (req, res) => {
 // POST /api/nutrition/food
 router.post('/food', authMiddleware, async (req, res) => {
   try {
-    const { date, mealType, foodName, servingSize, calories, proteinG, carbsG, fatG } = req.body;
+    const { date, mealType, foodName, servingSize, calories, proteinG, carbsG, fatG, photoUrl, photo_url } = req.body;
 
     if (!date || !mealType || !foodName || calories === undefined) {
       return res.status(400).json({ error: 'Date, mealType, foodName, and calories are required.' });
@@ -49,6 +49,7 @@ router.post('/food', authMiddleware, async (req, res) => {
       proteinG: Number(proteinG) || 0,
       carbsG: Number(carbsG) || 0,
       fatG: Number(fatG) || 0,
+      photoUrl: photoUrl || photo_url || null,
     });
 
     await item.save();

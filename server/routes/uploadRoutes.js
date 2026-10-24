@@ -23,18 +23,18 @@ if (hasCloudinary) {
   });
   console.log('[Cloudinary] Configured successfully for image uploads.');
 } else {
-  console.log('[Cloudinary] Credentials not detected. Falling back to local/in-memory storage.');
+  console.log('[Cloudinary] Cloud name missing or incomplete credentials. Local/in-memory fallback active.');
 }
 
-// 2. Multer Memory Storage (for streaming to Cloudinary or disk fallback)
+// 2. Multer Memory Storage (for streaming directly to Cloudinary)
 const storage = multer.memoryStorage();
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  limits: { fileSize: 12 * 1024 * 1024 }, // 12MB
 });
 
-// Helper: Stream buffer to Cloudinary
-const uploadBufferToCloudinary = (buffer, folder = 'fittrack') => {
+// Helper: Stream buffer directly to Cloudinary into specified folder
+const uploadBufferToCloudinary = (buffer, folder = 'GYM') => {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
@@ -71,18 +71,33 @@ router.post('/', authMiddleware, upload.single('image'), async (req, res) => {
       return res.status(400).json({ error: 'No image file uploaded.' });
     }
 
-    // Attempt Cloudinary upload first if configured
+    // Determine user folder name (e.g. 'vaibhav')
+    let userFolderName = 'vaibhav';
+    if (req.user?.fullName) {
+      userFolderName = req.user.fullName.trim().split(' ')[0].toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    } else if (req.user?.email) {
+      userFolderName = req.user.email.split('@')[0].toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    }
+
+    // Category: 'food', 'gym', 'avatar', 'progress'
+    const rawCategory = req.body?.category || req.body?.folder || 'gym';
+    const cleanCategory = rawCategory.toLowerCase().trim().replace(/[^a-z0-9_-]/g, '');
+
+    // Folder structure: GYM/<user>/<category>
+    const targetFolder = `GYM/${userFolderName}/${cleanCategory}`;
+
+    // Upload to Cloudinary if configured
     if (hasCloudinary) {
       try {
-        const cloudResult = await uploadBufferToCloudinary(file.buffer, 'fittrack');
+        const cloudResult = await uploadBufferToCloudinary(file.buffer, targetFolder);
         return res.json({
           url: cloudResult.secure_url,
           provider: 'cloudinary',
           publicId: cloudResult.public_id,
+          folder: targetFolder,
         });
       } catch (cloudErr) {
         console.error('[Cloudinary] Upload failed:', cloudErr.message);
-        // Fall back to local if Cloudinary errored
       }
     }
 
@@ -94,12 +109,12 @@ router.post('/', authMiddleware, upload.single('image'), async (req, res) => {
 
       fs.writeFileSync(filePath, file.buffer);
       const fileUrl = `/uploads/${filename}`;
-      return res.json({ url: fileUrl, provider: 'local' });
+      return res.json({ url: fileUrl, provider: 'local', folder: targetFolder });
     } catch (diskErr) {
-      // In-memory base64 Data URI fallback for serverless environments without writable disk
+      // In-memory base64 Data URI fallback for serverless environments
       const base64Data = file.buffer.toString('base64');
       const dataUri = `data:${file.mimetype || 'image/jpeg'};base64,${base64Data}`;
-      return res.json({ url: dataUri, provider: 'base64' });
+      return res.json({ url: dataUri, provider: 'base64', folder: targetFolder });
     }
   } catch (err) {
     console.error('[Upload Route] Error:', err);

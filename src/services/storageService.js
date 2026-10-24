@@ -1,9 +1,9 @@
 import { api } from '../lib/api';
 
 export const storageService = {
-  async uploadUserImage(_userId, file, _folder) {
+  async uploadUserImage(_userId, file, folder = 'gym') {
     try {
-      const data = await api.upload(file);
+      const data = await api.upload(file, { category: folder });
       return { url: data.url, error: null };
     } catch (err) {
       // Local fallback for offline/preview environments: convert to DataURL

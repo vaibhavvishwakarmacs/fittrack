@@ -189,14 +189,23 @@ export const NutritionPage = () => {
                       key={item.id}
                       className="py-2.5 flex items-center justify-between gap-3 text-xs"
                     >
-                      <div className="min-w-0">
-                        <p className="font-semibold text-white truncate">{item.food_name}</p>
-                        <p className="text-[10px] text-slate-400">
-                          {item.serving_size} •{' '}
-                          <span className="text-sky-400">{item.protein_g}g P</span> •{' '}
-                          <span className="text-amber-400">{item.carbs_g}g C</span> •{' '}
-                          <span className="text-rose-400">{item.fat_g}g F</span>
-                        </p>
+                      <div className="flex items-center gap-3 min-w-0">
+                        {(item.photo_url || item.photoUrl) && (
+                          <img
+                            src={item.photo_url || item.photoUrl}
+                            alt={item.food_name}
+                            className="w-10 h-10 rounded-xl object-cover border border-white/10 shrink-0"
+                          />
+                        )}
+                        <div className="min-w-0">
+                          <p className="font-semibold text-white truncate">{item.food_name}</p>
+                          <p className="text-[10px] text-slate-400">
+                            {item.serving_size} •{' '}
+                            <span className="text-sky-400">{item.protein_g}g P</span> •{' '}
+                            <span className="text-amber-400">{item.carbs_g}g C</span> •{' '}
+                            <span className="text-rose-400">{item.fat_g}g F</span>
+                          </p>
+                        </div>
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">

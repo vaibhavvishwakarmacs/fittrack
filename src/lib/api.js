@@ -61,10 +61,16 @@ export const api = {
     return this.request(endpoint, { method: 'DELETE' });
   },
 
-  async upload(file) {
+  async upload(file, options = {}) {
     const token = getAuthToken();
     const formData = new FormData();
     formData.append('image', file);
+    if (options.category) {
+      formData.append('category', options.category);
+    }
+    if (options.folder) {
+      formData.append('folder', options.folder);
+    }
 
     const response = await fetch(`${API_BASE_URL}/upload`, {
       method: 'POST',

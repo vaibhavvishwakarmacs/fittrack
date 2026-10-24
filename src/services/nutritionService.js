@@ -36,6 +36,7 @@ export const nutritionService = {
         protein_g: Number(payload.proteinG) || 0,
         carbs_g: Number(payload.carbsG) || 0,
         fat_g: Number(payload.fatG) || 0,
+        photo_url: payload.photoUrl || payload.photo_url || null,
       };
       const stored = localStorage.getItem(`${LOCAL_NUTRITION_KEY}${userId}`);
       const list = stored ? JSON.parse(stored) : [];
