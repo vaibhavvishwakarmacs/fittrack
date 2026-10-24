@@ -4,11 +4,14 @@ import { BodyTargetDiagram } from './BodyTargetDiagram';
 import { AppleRestTimer } from './AppleRestTimer';
 import { ExerciseVariationPicker } from './ExerciseVariationPicker';
 import { Button } from '../common/Button';
+import { Modal } from '../common/Modal';
+import { ConfirmDeleteModal } from '../common/ConfirmDeleteModal';
 import { ClickableImage } from '../common/ImageViewerModal';
 import { workoutService } from '../../services/workoutService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { playSetCompleteSound, playButtonTapSound } from '../../lib/soundUtils';
+import { useScrollLock } from '../../lib/scrollLock';
 import confetti from 'canvas-confetti';
 import {
   Clock,
@@ -34,6 +37,8 @@ import {
 const LOCAL_SESSION_KEY = 'fittrack_live_session_state';
 
 export const LiveWorkoutSession = ({ isOpen, onClose, onWorkoutSaved }) => {
+  useScrollLock(isOpen);
+
   const { user, profile } = useAuth();
   const { success, error: toastError } = useToast();
 
@@ -1299,89 +1304,68 @@ export const LiveWorkoutSession = ({ isOpen, onClose, onWorkoutSaved }) => {
       />
 
       {/* Finish Session Confirmation Modal */}
-      {isFinishModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-2xl animate-in fade-in select-none">
-          <div className="w-full max-w-[360px] sm:max-w-md rounded-[32px] bg-[#07090f]/95 border border-white/10 p-5 sm:p-7 text-center shadow-2xl space-y-4 backdrop-filter backdrop-blur-3xl">
-            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-3xl bg-lime/15 border border-lime/30 flex items-center justify-center text-lime mx-auto shadow-lime-sm">
-              <Award className="w-7 h-7 sm:w-8 sm:h-8" />
+      <Modal
+        isOpen={isFinishModalOpen}
+        onClose={() => setIsFinishModalOpen(false)}
+        title={`Finish ${sessionTitle}?`}
+        description="Outstanding training today! Summary of logged volume and completed sets:"
+        maxWidth="sm"
+      >
+        <div className="space-y-4 text-center">
+          <div className="w-14 h-14 rounded-3xl bg-lime/15 border border-lime/30 flex items-center justify-center text-lime mx-auto shadow-lime-sm">
+            <Award className="w-7 h-7" />
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-white/[0.03] border border-white/10 text-center">
+            <div>
+              <span className="text-[9px] text-slate-400 uppercase font-semibold block">Time</span>
+              <span className="text-sm sm:text-base font-extrabold text-white font-mono mt-0.5">
+                {formatStopwatch(elapsedSeconds)}
+              </span>
             </div>
-
-            <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-              Finish {sessionTitle}?
-            </h2>
-            <p className="text-xs text-slate-400">
-              Outstanding training today! Summary of logged volume and sets:
-            </p>
-
-            <div className="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-white/[0.03] border border-white/10 text-center">
-              <div>
-                <span className="text-[9px] text-slate-400 uppercase font-semibold block">Time</span>
-                <span className="text-sm sm:text-base font-extrabold text-white font-mono mt-0.5">
-                  {formatStopwatch(elapsedSeconds)}
-                </span>
-              </div>
-              <div>
-                <span className="text-[9px] text-slate-400 uppercase font-semibold block">Volume</span>
-                <span className="text-sm sm:text-base font-extrabold text-lime font-mono mt-0.5">
-                  {totalVolume.toLocaleString()} {unit}
-                </span>
-              </div>
-              <div>
-                <span className="text-[9px] text-slate-400 uppercase font-semibold block">Sets</span>
-                <span className="text-sm sm:text-base font-extrabold text-orange-400 font-mono mt-0.5">
-                  {completedSetsCount} sets
-                </span>
-              </div>
+            <div>
+              <span className="text-[9px] text-slate-400 uppercase font-semibold block">Volume</span>
+              <span className="text-sm sm:text-base font-extrabold text-lime font-mono mt-0.5">
+                {totalVolume.toLocaleString()} {unit}
+              </span>
             </div>
-
-            <div className="pt-2 flex items-center justify-between gap-3">
-              <Button
-                variant="ghost"
-                onClick={() => setIsFinishModalOpen(false)}
-                disabled={isSaving}
-              >
-                Keep Training
-              </Button>
-              <Button
-                variant="primary"
-                size="md"
-                onClick={handleSaveAndCompleteSession}
-                isLoading={isSaving}
-                rightIcon={<Check className="w-4 h-4" />}
-              >
-                Save Workout
-              </Button>
+            <div>
+              <span className="text-[9px] text-slate-400 uppercase font-semibold block">Sets</span>
+              <span className="text-sm sm:text-base font-extrabold text-orange-400 font-mono mt-0.5">
+                {completedSetsCount} sets
+              </span>
             </div>
           </div>
+
+          <div className="pt-2 flex items-center justify-between gap-3">
+            <Button
+              variant="ghost"
+              onClick={() => setIsFinishModalOpen(false)}
+              disabled={isSaving}
+            >
+              Keep Training
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={handleSaveAndCompleteSession}
+              isLoading={isSaving}
+              rightIcon={<Check className="w-4 h-4" />}
+            >
+              Save Workout
+            </Button>
+          </div>
         </div>
-      )}
+      </Modal>
 
       {/* Discard Confirmation Modal */}
-      {isDiscardModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-2xl animate-in fade-in select-none">
-          <div className="w-full max-w-[340px] rounded-[30px] bg-[#07090f]/95 border border-rose-500/30 p-5 text-center shadow-2xl space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 mx-auto">
-              <Trash2 className="w-6 h-6" />
-            </div>
-            <h3 className="text-lg font-black text-white">Discard Workout?</h3>
-            <p className="text-xs text-slate-400">
-              Are you sure you want to discard this workout? Current sets and timing will not be saved.
-            </p>
-            <div className="flex items-center justify-between gap-2 pt-2">
-              <Button variant="ghost" size="sm" onClick={() => setIsDiscardModalOpen(false)}>
-                Cancel
-              </Button>
-              <button
-                type="button"
-                onClick={handleConfirmDiscard}
-                className="px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs transition-colors"
-              >
-                Yes, Discard
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDeleteModal
+        isOpen={isDiscardModalOpen}
+        onClose={() => setIsDiscardModalOpen(false)}
+        onConfirm={handleConfirmDiscard}
+        title="Discard Workout?"
+        message="Are you sure you want to discard this workout? Current sets and timing will not be saved."
+      />
     </div>
   );
 };

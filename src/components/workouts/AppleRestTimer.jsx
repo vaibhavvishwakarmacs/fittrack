@@ -9,6 +9,7 @@ import {
   triggerVibrate,
 } from '../../lib/soundUtils';
 import { BETWEEN_SET_TIPS } from '../../data/muscleData';
+import { useScrollLock } from '../../lib/scrollLock';
 import {
   Play,
   Pause,
@@ -33,6 +34,8 @@ export const AppleRestTimer = ({
   autoStart = false,
   title = 'Rest & Recovery',
 }) => {
+  useScrollLock(true);
+
   const [totalDuration, setTotalDuration] = useState(durationSec || 90);
   const [timeLeft, setTimeLeft] = useState(durationSec || 90);
   const [isRunning, setIsRunning] = useState(autoStart);
