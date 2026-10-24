@@ -90,74 +90,76 @@ export const ActivityPage = () => {
   }
 
   return (
-    <div className="space-y-6 text-left animate-in fade-in pb-12">
+    <div className="space-y-4 text-left animate-in fade-in pb-12">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
-            <Footprints className="w-6 h-6 text-lime" />
+          <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight flex items-center gap-2">
+            <Footprints className="w-5 h-5 text-lime" />
             <span>Activity &amp; Steps</span>
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Daily step volume, walking distance, and active cardio duration
+            Step volume, walking distance, and daily active cardio
           </p>
         </div>
 
         <Button
           variant="primary"
+          size="sm"
           onClick={() => setIsModalOpen(true)}
-          leftIcon={<Plus className="w-4 h-4" />}
+          leftIcon={<Plus className="w-3.5 h-3.5" />}
+          className="self-start sm:self-auto font-bold shadow-lime-sm"
         >
           Log Steps
         </Button>
       </div>
 
-      {/* Main Today Steps Ring / Hero Card */}
-      <div className="glass-card rounded-3xl p-6 sm:p-8 border border-white/10 shadow-2xl relative overflow-hidden">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+      {/* Main Today Steps Ring / Hero Card - Compact Glance */}
+      <div className="rounded-2xl p-4 sm:p-5 bg-white/[0.03] border border-white/10 relative overflow-hidden">
+        <div className="flex items-center justify-between gap-4">
           <div>
-            <span className="text-xs font-semibold text-lime uppercase tracking-wider px-2.5 py-1 rounded-full bg-lime/10 border border-lime/30 inline-block mb-3">
+            <span className="text-[10px] font-bold text-lime uppercase tracking-wider px-2 py-0.5 rounded-full bg-lime/10 border border-lime/30 inline-block mb-1.5">
               Today's Step Progress
             </span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-4xl sm:text-5xl font-black text-white font-sans tracking-tight">
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-3xl sm:text-4xl font-black text-white font-sans tracking-tight">
                 {currentSteps.toLocaleString()}
               </span>
-              <span className="text-sm font-semibold text-slate-400">/ {targetSteps.toLocaleString()} steps</span>
+              <span className="text-xs font-semibold text-slate-400">/ {targetSteps.toLocaleString()}</span>
             </div>
-            <p className="text-xs text-slate-400 mt-2">
+            <p className="text-[11px] text-slate-400 mt-1">
               {percentage >= 100 ? (
-                <span className="text-lime font-bold flex items-center gap-1.5">
-                  <Award className="w-4 h-4" /> Goal smashed! Fantastic work today.
+                <span className="text-lime font-bold flex items-center gap-1">
+                  <Award className="w-3.5 h-3.5" /> Daily step goal completed!
                 </span>
               ) : (
-                <span>{(targetSteps - currentSteps).toLocaleString()} steps left to hit your daily target.</span>
+                <span>{(targetSteps - currentSteps).toLocaleString()} steps remaining today</span>
               )}
             </p>
           </div>
 
-          <div className="shrink-0 flex sm:flex-col items-center gap-1 bg-dark-950/80 p-4 rounded-2xl border border-white/5 text-center min-w-[120px]">
-            <span className="text-2xl font-black text-lime">{percentage}%</span>
-            <span className="text-[10px] text-slate-400 uppercase font-semibold">Goal Complete</span>
+          <div className="shrink-0 flex flex-col items-center justify-center bg-white/[0.04] p-3 rounded-2xl border border-white/5 text-center min-w-[75px]">
+            <span className="text-xl font-black text-lime font-mono">{percentage}%</span>
+            <span className="text-[9px] text-slate-400 uppercase font-semibold">Goal</span>
           </div>
         </div>
 
-        {/* Big Progress Bar */}
-        <div className="w-full bg-dark-950 rounded-full h-3.5 mt-6 overflow-hidden border border-white/5">
+        {/* Progress Bar */}
+        <div className="w-full bg-white/5 rounded-full h-2 mt-4 overflow-hidden">
           <div
-            className="bg-gradient-to-r from-lime to-lime-bright h-full rounded-full transition-all duration-700"
+            className="bg-gradient-to-r from-lime to-lime-bright h-full rounded-full transition-all duration-700 shadow-lime-sm"
             style={{ width: `${percentage}%` }}
           />
         </div>
       </div>
 
       {/* 3 Metric Cards */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         <StatCard
           title="Distance"
           value={formatDistance(currentDistance, unit).split(' ')[0]}
-          unit={unit === 'imperial' ? 'miles' : 'km'}
-          icon={<MapPin className="w-4 h-4 text-sky-400" />}
+          unit={unit === 'imperial' ? 'mi' : 'km'}
+          icon={<MapPin className="w-3.5 h-3.5 text-sky-400" />}
           iconBg="bg-sky-400/10"
         />
 
@@ -165,7 +167,7 @@ export const ActivityPage = () => {
           title="Active Burn"
           value={currentCalories.toLocaleString()}
           unit="kcal"
-          icon={<Flame className="w-4 h-4 text-amber-400" />}
+          icon={<Flame className="w-3.5 h-3.5 text-amber-400" />}
           iconBg="bg-amber-400/10"
         />
 
@@ -173,15 +175,15 @@ export const ActivityPage = () => {
           title="Active Time"
           value={currentMinutes}
           unit="min"
-          icon={<Clock className="w-4 h-4 text-purple-400" />}
+          icon={<Clock className="w-3.5 h-3.5 text-purple-400" />}
           iconBg="bg-purple-400/10"
         />
       </div>
 
-      {/* 7-Day Step Trend Bar Chart */}
-      <div className="glass-card rounded-3xl p-5 sm:p-6 border border-white/10 shadow-xl space-y-3">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+      {/* 7-Day Step Trend Bar Chart - Compact & High-Contrast */}
+      <div className="rounded-2xl p-4 sm:p-5 bg-white/[0.03] border border-white/10 space-y-2">
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="text-xs sm:text-sm font-bold text-white tracking-tight flex items-center gap-1.5">
             <TrendingUp className="w-4 h-4 text-lime" />
             <span>7-Day Step Volume</span>
           </h2>

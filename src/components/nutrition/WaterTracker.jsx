@@ -39,87 +39,95 @@ export const WaterTracker = ({
     setCustomMl('');
   };
 
+  const [showCustom, setShowCustom] = useState(false);
+
   return (
-    <div className="glass-card rounded-2xl p-4 sm:p-5 border border-white/10 text-left">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-sky-500/15 text-sky-400 flex items-center justify-center">
-            <Droplets className="w-4 h-4 fill-current stroke-none" />
+    <div className="rounded-2xl p-3.5 sm:p-4 bg-white/[0.03] border border-white/[0.08] text-left">
+      <div className="flex items-center justify-between mb-2.5">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-xl bg-sky-500/15 text-sky-400 flex items-center justify-center shrink-0">
+            <Droplets className="w-3.5 h-3.5 fill-current stroke-none" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-white tracking-tight">Hydration Tracker</h3>
-            <p className="text-[11px] text-slate-400">Daily fluid intake</p>
+            <h3 className="text-xs sm:text-sm font-bold text-white tracking-tight">Hydration Tracker</h3>
+            <p className="text-[10px] text-slate-400">{percentage}% of daily goal</p>
           </div>
         </div>
         <div className="text-right">
-          <p className="text-base sm:text-lg font-black text-sky-400 font-sans tracking-tight">
-            {Number(currentWaterMl).toLocaleString()} <span className="text-xs text-slate-400 font-semibold">/ {Number(targetWaterMl).toLocaleString()} ml</span>
-          </p>
-          <p className="text-[10px] text-slate-400 font-semibold">{percentage}% of goal</p>
+          <span className="text-sm sm:text-base font-extrabold text-sky-400 font-mono tracking-tight">
+            {Number(currentWaterMl).toLocaleString()}
+          </span>
+          <span className="text-[10px] text-slate-400 font-normal"> / {Number(targetWaterMl).toLocaleString()} ml</span>
         </div>
       </div>
 
-      <div className="w-full bg-dark-950 rounded-full h-2.5 overflow-hidden mb-4 border border-white/5">
+      <div className="w-full bg-white/5 rounded-full h-1.5 overflow-hidden mb-3">
         <div
-          className="bg-gradient-to-r from-sky-500 to-sky-400 h-full rounded-full transition-all duration-500"
+          className="bg-gradient-to-r from-sky-500 to-sky-400 h-full rounded-full transition-all duration-500 shadow-[0_0_10px_rgba(56,189,248,0.25)]"
           style={{ width: `${percentage}%` }}
         />
       </div>
 
-      <div className="grid grid-cols-4 gap-2 mb-3">
+      {/* Quick Tap Pills - Clean 1-Row Layout */}
+      <div className="flex items-center gap-1.5">
         <button
           type="button"
           onClick={() => handleQuickAdd(250)}
-          className="py-2 px-1 rounded-xl bg-dark-850 hover:bg-dark-800 border border-white/5 hover:border-sky-500/30 text-center transition-all group"
+          className="flex-1 py-1.5 px-2 rounded-xl bg-white/[0.04] hover:bg-sky-500/15 active:scale-95 border border-white/5 hover:border-sky-500/30 text-center transition-all group"
         >
-          <span className="block text-xs font-bold text-slate-200 group-hover:text-sky-400">+250ml</span>
-          <span className="block text-[9px] text-slate-400 uppercase">Glass</span>
+          <span className="text-xs font-bold text-slate-200 group-hover:text-sky-400">+250ml</span>
         </button>
 
         <button
           type="button"
           onClick={() => handleQuickAdd(500)}
-          className="py-2 px-1 rounded-xl bg-dark-850 hover:bg-dark-800 border border-white/5 hover:border-sky-500/30 text-center transition-all group"
+          className="flex-1 py-1.5 px-2 rounded-xl bg-white/[0.04] hover:bg-sky-500/15 active:scale-95 border border-white/5 hover:border-sky-500/30 text-center transition-all group"
         >
-          <span className="block text-xs font-bold text-slate-200 group-hover:text-sky-400">+500ml</span>
-          <span className="block text-[9px] text-slate-400 uppercase">Bottle</span>
+          <span className="text-xs font-bold text-slate-200 group-hover:text-sky-400">+500ml</span>
         </button>
 
         <button
           type="button"
           onClick={() => handleQuickAdd(750)}
-          className="py-2 px-1 rounded-xl bg-dark-850 hover:bg-dark-800 border border-white/5 hover:border-sky-500/30 text-center transition-all group"
+          className="flex-1 py-1.5 px-2 rounded-xl bg-white/[0.04] hover:bg-sky-500/15 active:scale-95 border border-white/5 hover:border-sky-500/30 text-center transition-all group"
         >
-          <span className="block text-xs font-bold text-slate-200 group-hover:text-sky-400">+750ml</span>
-          <span className="block text-[9px] text-slate-400 uppercase">Shaker</span>
+          <span className="text-xs font-bold text-slate-200 group-hover:text-sky-400">+750ml</span>
         </button>
 
         <button
           type="button"
-          onClick={() => handleQuickAdd(1000)}
-          className="py-2 px-1 rounded-xl bg-dark-850 hover:bg-dark-800 border border-white/5 hover:border-sky-500/30 text-center transition-all group"
+          onClick={() => setShowCustom(!showCustom)}
+          className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all active:scale-95 ${
+            showCustom
+              ? 'bg-sky-500/20 text-sky-400 border-sky-500/40'
+              : 'bg-white/[0.04] hover:bg-white/[0.08] text-slate-400 border-white/5'
+          }`}
+          title="Custom amount"
         >
-          <span className="block text-xs font-bold text-slate-200 group-hover:text-sky-400">+1000ml</span>
-          <span className="block text-[9px] text-slate-400 uppercase">Jug</span>
+          <Plus className="w-3.5 h-3.5" />
         </button>
       </div>
 
-      <form onSubmit={handleCustomAdd} className="flex gap-2">
-        <input
-          type="number"
-          placeholder="Custom ml (e.g. 350)"
-          value={customMl}
-          onChange={(e) => setCustomMl(e.target.value)}
-          className="flex-1 bg-dark-950 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400"
-        />
-        <button
-          type="submit"
-          disabled={!customMl}
-          className="px-3 py-1.5 bg-sky-500/20 hover:bg-sky-500 text-sky-400 hover:text-dark-950 rounded-xl text-xs font-bold border border-sky-500/30 transition-colors disabled:opacity-40"
-        >
-          <Plus className="w-4 h-4 inline" />
-        </button>
-      </form>
+      {showCustom && (
+        <form onSubmit={handleCustomAdd} className="flex gap-2 mt-2.5 pt-2 border-t border-white/5 animate-in fade-in">
+          <input
+            type="number"
+            inputMode="numeric"
+            placeholder="Custom ml (e.g. 350)"
+            value={customMl}
+            onChange={(e) => setCustomMl(e.target.value)}
+            className="flex-1 bg-[#07090f] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400"
+            autoFocus
+          />
+          <button
+            type="submit"
+            disabled={!customMl}
+            className="px-3 py-1.5 bg-sky-500 text-dark-950 font-black rounded-xl text-xs hover:bg-sky-400 transition-colors disabled:opacity-40"
+          >
+            Add
+          </button>
+        </form>
+      )}
     </div>
   );
 };

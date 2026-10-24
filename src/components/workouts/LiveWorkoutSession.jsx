@@ -847,30 +847,37 @@ export const LiveWorkoutSession = ({ isOpen, onClose, onWorkoutSaved }) => {
                   </div>
                 </div>
 
-                {/* Form Tips & Image */}
-                <div className="p-3.5 sm:p-4 rounded-2xl bg-[#090c13]/80 border border-white/5 flex flex-col sm:flex-row gap-3 sm:gap-4 items-start sm:center justify-between">
-                  <div className="space-y-1">
-                    <span className="text-[10px] uppercase font-bold text-lime tracking-wider flex items-center gap-1">
-                      <Sparkles className="w-3 h-3" />
-                      <span>Form Cues &amp; Execution Tips</span>
-                    </span>
-                    <ul className="text-xs text-slate-300 list-disc list-inside space-y-0.5">
-                      {(currentExercise.tips || []).map((tip, tIdx) => (
-                        <li key={tIdx} className="leading-relaxed">
-                          {tip}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                {/* Form Tips & Image - Collapsible to keep sets immediately visible without scrolling */}
+                {((currentExercise.tips && currentExercise.tips.length > 0) || currentExercise.image) && (
+                  <details className="group rounded-2xl bg-[#090c13]/70 border border-white/5 p-3 text-xs">
+                    <summary className="cursor-pointer font-bold text-slate-300 flex items-center justify-between list-none select-none">
+                      <span className="text-[10px] uppercase font-bold text-lime tracking-wider flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-lime" />
+                        <span>Form Cues &amp; Tips ({currentExercise.tips?.length || 0})</span>
+                      </span>
+                      <span className="text-[10px] text-slate-400 group-open:hidden font-normal">View cues ↓</span>
+                      <span className="text-[10px] text-slate-400 hidden group-open:inline font-normal">Hide ↑</span>
+                    </summary>
 
-                  {currentExercise.image && (
-                    <img
-                      src={currentExercise.image}
-                      alt={currentExercise.name}
-                      className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover border border-white/10 shrink-0 self-center sm:self-auto"
-                    />
-                  )}
-                </div>
+                    <div className="mt-2.5 pt-2.5 border-t border-white/5 flex flex-col sm:flex-row gap-3 items-start justify-between">
+                      <ul className="text-xs text-slate-300 list-disc list-inside space-y-1">
+                        {(currentExercise.tips || []).map((tip, tIdx) => (
+                          <li key={tIdx} className="leading-relaxed">
+                            {tip}
+                          </li>
+                        ))}
+                      </ul>
+
+                      {currentExercise.image && (
+                        <img
+                          src={currentExercise.image}
+                          alt={currentExercise.name}
+                          className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover border border-white/10 shrink-0 self-center sm:self-auto"
+                        />
+                      )}
+                    </div>
+                  </details>
+                )}
 
                 {/* VARIATION TIMING & LONGEST REST STATS BANNER */}
                 {currentVariationStats && (

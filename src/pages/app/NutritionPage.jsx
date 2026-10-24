@@ -148,7 +148,7 @@ export const NutritionPage = () => {
       />
 
       {/* 4 Meal Category Sections */}
-      <div className="space-y-4">
+      <div className="space-y-2.5">
         {mealConfigs.map(({ type, title, icon: Icon, iconColor }) => {
           const mealLogs = logs.filter((l) => l.meal_type === type);
           const mealCalories = mealLogs.reduce((acc, l) => acc + (l.calories || 0), 0);
@@ -156,75 +156,97 @@ export const NutritionPage = () => {
           return (
             <div
               key={type}
-              className="glass-card rounded-2xl p-4 sm:p-5 border border-white/10 space-y-3"
+              className={`rounded-2xl transition-all border ${
+                mealLogs.length > 0
+                  ? 'p-4 sm:p-5 bg-white/[0.03] border-white/10 space-y-3'
+                  : 'p-3 bg-white/[0.015] hover:bg-white/[0.03] border-white/5 flex items-center justify-between'
+              }`}
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className={`p-2 rounded-xl bg-white/5 ${iconColor}`}>
-                    <Icon className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-white tracking-tight">{title}</h3>
-                    <p className="text-[11px] text-slate-400">
-                      {mealCalories} kcal • {mealLogs.length} {mealLogs.length === 1 ? 'item' : 'items'}
-                    </p>
-                  </div>
-                </div>
-
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleOpenAddModal(type)}
-                  leftIcon={<Plus className="w-3.5 h-3.5" />}
-                >
-                  Add Food
-                </Button>
-              </div>
-
-              {/* Items list */}
               {mealLogs.length > 0 ? (
-                <div className="divide-y divide-white/[0.04] pt-1">
-                  {mealLogs.map((item) => (
-                    <div
-                      key={item.id}
-                      className="py-2.5 flex items-center justify-between gap-3 text-xs"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        {(item.photo_url || item.photoUrl) && (
-                          <img
-                            src={item.photo_url || item.photoUrl}
-                            alt={item.food_name}
-                            className="w-10 h-10 rounded-xl object-cover border border-white/10 shrink-0"
-                          />
-                        )}
-                        <div className="min-w-0">
-                          <p className="font-semibold text-white truncate">{item.food_name}</p>
-                          <p className="text-[10px] text-slate-400">
-                            {item.serving_size} •{' '}
-                            <span className="text-sky-400">{item.protein_g}g P</span> •{' '}
-                            <span className="text-amber-400">{item.carbs_g}g C</span> •{' '}
-                            <span className="text-rose-400">{item.fat_g}g F</span>
-                          </p>
-                        </div>
+                <>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className={`p-2 rounded-xl bg-white/5 ${iconColor}`}>
+                        <Icon className="w-4 h-4" />
                       </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="font-bold text-amber-400 text-sm">
-                          {item.calories} <span className="text-[10px] text-slate-400 font-normal">kcal</span>
-                        </span>
-                        <button
-                          onClick={() => handleDeleteItem(item.id)}
-                          className="p-1 text-slate-500 hover:text-rose-400 transition-colors"
-                          title="Delete food entry"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                      <div>
+                        <h3 className="text-sm font-bold text-white tracking-tight">{title}</h3>
+                        <p className="text-[11px] text-slate-400">
+                          {mealCalories} kcal • {mealLogs.length} {mealLogs.length === 1 ? 'item' : 'items'}
+                        </p>
                       </div>
                     </div>
-                  ))}
-                </div>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleOpenAddModal(type)}
+                      leftIcon={<Plus className="w-3.5 h-3.5" />}
+                    >
+                      Add Food
+                    </Button>
+                  </div>
+
+                  {/* Items list */}
+                  <div className="divide-y divide-white/[0.04] pt-1">
+                    {mealLogs.map((item) => (
+                      <div
+                        key={item.id}
+                        className="py-2.5 flex items-center justify-between gap-3 text-xs"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          {(item.photo_url || item.photoUrl) && (
+                            <img
+                              src={item.photo_url || item.photoUrl}
+                              alt={item.food_name}
+                              className="w-10 h-10 rounded-xl object-cover border border-white/10 shrink-0"
+                            />
+                          )}
+                          <div className="min-w-0">
+                            <p className="font-semibold text-white truncate">{item.food_name}</p>
+                            <p className="text-[10px] text-slate-400">
+                              {item.serving_size} •{' '}
+                              <span className="text-sky-400">{item.protein_g}g P</span> •{' '}
+                              <span className="text-amber-400">{item.carbs_g}g C</span> •{' '}
+                              <span className="text-rose-400">{item.fat_g}g F</span>
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="font-bold text-amber-400 text-sm">
+                            {item.calories} <span className="text-[10px] text-slate-400 font-normal">kcal</span>
+                          </span>
+                          <button
+                            onClick={() => handleDeleteItem(item.id)}
+                            className="p-1 text-slate-500 hover:text-rose-400 transition-colors"
+                            title="Delete food entry"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
               ) : (
-                <p className="text-xs text-slate-500 italic py-1">No food logged for this meal.</p>
+                <>
+                  <div className="flex items-center gap-2.5">
+                    <div className={`p-1.5 rounded-lg bg-white/5 ${iconColor}`}>
+                      <Icon className="w-3.5 h-3.5" />
+                    </div>
+                    <span className="text-xs font-semibold text-slate-300">{title}</span>
+                    <span className="text-[10px] text-slate-500">• 0 kcal</span>
+                  </div>
+
+                  <button
+                    onClick={() => handleOpenAddModal(type)}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 active:scale-95 text-[11px] font-bold text-lime border border-white/5 transition-all"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Log</span>
+                  </button>
+                </>
               )}
             </div>
           );

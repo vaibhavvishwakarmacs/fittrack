@@ -62,12 +62,12 @@ export const WorkoutsPage = () => {
   }
 
   return (
-    <div className="space-y-6 text-left animate-in fade-in pb-12">
+    <div className="space-y-4 text-left animate-in fade-in pb-12">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
-            <Dumbbell className="w-6 h-6 text-lime" />
+          <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight flex items-center gap-2">
+            <Dumbbell className="w-5 h-5 text-lime" />
             <span>Workout Journal</span>
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
@@ -77,37 +77,38 @@ export const WorkoutsPage = () => {
 
         <Button
           variant="primary"
+          size="sm"
           onClick={() => startSession(loadWorkouts)}
           leftIcon={<Dumbbell className="w-4 h-4" />}
-          className="font-bold shadow-lime-sm"
+          className="self-start sm:self-auto font-bold shadow-lime-sm"
         >
-          {hasActiveSavedSession ? 'Resume Workout Session' : 'Start Workout Session'}
+          {hasActiveSavedSession ? 'Resume Live Workout' : 'Start Workout Session'}
         </Button>
       </div>
 
       {/* Aggregate Stats Banner */}
-      <div className="grid grid-cols-3 gap-2.5 p-4 rounded-3xl bg-dark-900 border border-white/10 shadow-lg text-center">
+      <div className="grid grid-cols-3 gap-2 p-3 sm:p-4 rounded-2xl bg-white/[0.03] border border-white/10 text-center">
         <div>
           <p className="text-[10px] text-slate-400 uppercase font-semibold">Total Sessions</p>
-          <div className="flex items-center justify-center gap-1.5 mt-1">
+          <div className="flex items-center justify-center gap-1.5 mt-0.5">
             <Trophy className="w-3.5 h-3.5 text-lime" />
-            <span className="text-base sm:text-xl font-extrabold text-white font-sans">{workouts.length}</span>
+            <span className="text-base sm:text-lg font-black text-white font-sans">{workouts.length}</span>
           </div>
         </div>
 
         <div>
           <p className="text-[10px] text-slate-400 uppercase font-semibold">Volume Moved</p>
-          <div className="flex items-center justify-center gap-1.5 mt-1">
+          <div className="flex items-center justify-center gap-1.5 mt-0.5">
             <Dumbbell className="w-3.5 h-3.5 text-sky-400" />
-            <span className="text-base sm:text-xl font-extrabold text-white font-sans">{Math.round(totalVolume).toLocaleString()} {unit}</span>
+            <span className="text-base sm:text-lg font-black text-white font-sans">{Math.round(totalVolume).toLocaleString()} <span className="text-[10px] font-normal text-slate-400">{unit}</span></span>
           </div>
         </div>
 
         <div>
           <p className="text-[10px] text-slate-400 uppercase font-semibold">Training Time</p>
-          <div className="flex items-center justify-center gap-1.5 mt-1">
+          <div className="flex items-center justify-center gap-1.5 mt-0.5">
             <Clock className="w-3.5 h-3.5 text-amber-400" />
-            <span className="text-base sm:text-xl font-extrabold text-white font-sans">{totalHours} hrs</span>
+            <span className="text-base sm:text-lg font-black text-white font-sans">{totalHours} <span className="text-[10px] font-normal text-slate-400">hrs</span></span>
           </div>
         </div>
       </div>

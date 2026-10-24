@@ -11,7 +11,6 @@ import { Button } from '../../components/common/Button';
 import { EmptyState } from '../../components/common/EmptyState';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { MacroRing } from '../../components/nutrition/MacroRing';
-import { WaterTracker } from '../../components/nutrition/WaterTracker';
 import { WorkoutCard } from '../../components/workouts/WorkoutCard';
 import { WorkoutLoggerModal } from '../../components/workouts/WorkoutLoggerModal';
 import { FoodLoggerModal } from '../../components/nutrition/FoodLoggerModal';
@@ -93,7 +92,7 @@ export const DashboardPage = () => {
   const firstName = profile?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'Athlete';
 
   return (
-    <div className="space-y-6 text-left animate-in fade-in pb-10">
+    <div className="space-y-4 text-left animate-in fade-in pb-10">
       {/* Top Greeting & Quick Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -150,11 +149,11 @@ export const DashboardPage = () => {
         </div>
       </div>
 
-      {/* 4 Core Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* 4 Core Stat Cards - Clean Apple Fitness Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
         {/* Daily Steps */}
         <StatCard
-          title="Daily Steps"
+          title="Steps"
           value={todaySteps.toLocaleString()}
           unit="steps"
           icon={<Footprints className="w-4 h-4 text-lime" />}
@@ -172,29 +171,57 @@ export const DashboardPage = () => {
           title="Active Burn"
           value={((activity?.active_calories || 0) + (todayWorkout?.calories_burned || 0)).toLocaleString()}
           unit="kcal"
-          subtitle={todayWorkout ? `Includes ${todayWorkout.calories_burned} kcal lifting` : 'Walking & cardio'}
+          subtitle={todayWorkout ? `${todayWorkout.calories_burned} kcal lift` : 'Walking & daily'}
           icon={<Flame className="w-4 h-4 text-amber-400" />}
           iconBg="bg-amber-400/10"
         />
 
-        {/* Water Intake */}
+        {/* Water Intake - Direct 1-tap Quick Add */}
         <StatCard
-          title="Water"
+          title="Hydration"
           value={waterMl.toLocaleString()}
           unit="ml"
           icon={<Droplets className="w-4 h-4 text-sky-400" />}
           iconBg="bg-sky-400/10"
+          subtitle={`${Math.min(Math.round((waterMl / targetWater) * 100), 100)}% of goal`}
           progress={{
             current: waterMl,
             target: targetWater,
             color: 'bg-sky-400',
           }}
-          onClick={() => {}}
+          action={
+            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!user) return;
+                  await nutritionService.logWater(user.id, today, 250);
+                  loadDashboardData();
+                }}
+                className="flex-1 py-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 active:scale-95 text-[10px] font-bold text-sky-300 border border-sky-500/30 text-center transition-all"
+                title="Log 250ml"
+              >
+                +250ml
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!user) return;
+                  await nutritionService.logWater(user.id, today, 500);
+                  loadDashboardData();
+                }}
+                className="flex-1 py-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 active:scale-95 text-[10px] font-bold text-sky-300 border border-sky-500/30 text-center transition-all"
+                title="Log 500ml"
+              >
+                +500ml
+              </button>
+            </div>
+          }
         />
 
-        {/* Weight Tracker */}
+        {/* Weight Tracker - Clean Title */}
         <StatCard
-          title="Current Weight"
+          title="Weight"
           value={profile?.current_weight_kg ? profile.current_weight_kg : '--'}
           unit={unit}
           subtitle={profile?.target_weight_kg ? `Goal: ${profile.target_weight_kg} ${unit}` : undefined}
@@ -204,10 +231,10 @@ export const DashboardPage = () => {
         />
       </div>
 
-      {/* Today's Workout Focus */}
-      <section aria-labelledby="today-workout-heading" className="space-y-3">
+      {/* Today's Workout - High Signal Glance Card */}
+      <section aria-labelledby="today-workout-heading" className="space-y-2.5">
         <div className="flex items-center justify-between">
-          <h2 id="today-workout-heading" className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+          <h2 id="today-workout-heading" className="text-sm sm:text-base font-bold text-white tracking-tight flex items-center gap-2">
             <Dumbbell className="w-4 h-4 text-lime" />
             <span>Today's Workout</span>
           </h2>
@@ -231,14 +258,25 @@ export const DashboardPage = () => {
             }}
           />
         ) : (
-          <EmptyState
-            icon={<Dumbbell className="w-7 h-7" />}
-            title="No workout logged for today"
-            description="Hit the iron, start a live training session, and record your sets and load in real time."
-            actionLabel="Start Live Workout Session"
-            actionIcon={<Plus className="w-4 h-4" />}
-            onAction={() => startSession(loadDashboardData)}
-          />
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-lime/30 flex items-center justify-between gap-3 transition-all">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-lime/10 text-lime flex items-center justify-center shrink-0">
+                <Dumbbell className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm font-bold text-white truncate">No workout logged yet today</p>
+                <p className="text-[11px] text-slate-400 truncate">Ready to train? Start your live split</p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={() => startSession(loadDashboardData)}
+              className="shrink-0 text-xs font-extrabold py-2 px-3 shadow-lime-sm"
+            >
+              Start Live
+            </Button>
+          </div>
         )}
       </section>
 
@@ -269,14 +307,6 @@ export const DashboardPage = () => {
           targetFat={targetFat}
         />
       </section>
-
-      {/* Hydration Tracker */}
-      <WaterTracker
-        currentWaterMl={waterMl}
-        targetWaterMl={targetWater}
-        date={today}
-        onWaterUpdated={loadDashboardData}
-      />
 
       {/* Modals */}
       <FoodLoggerModal
