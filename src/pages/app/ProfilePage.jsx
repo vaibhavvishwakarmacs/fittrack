@@ -8,12 +8,16 @@ import { WeightChart } from '../../components/profile/WeightChart';
 import { WeightLoggerModal } from '../../components/profile/WeightLoggerModal';
 import { Button } from '../../components/common/Button';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
+import { ClickableImage } from '../../components/common/ImageViewerModal';
+import { ConfirmDeleteModal } from '../../components/common/ConfirmDeleteModal';
+import { ShareCardModal } from '../../components/common/ShareCardModal';
 import {
   Scale,
   Calendar,
   Plus,
   Settings,
   Trash2,
+  Share2,
 } from 'lucide-react';
 
 export const ProfilePage = () => {
@@ -21,6 +25,9 @@ export const ProfilePage = () => {
   const [weightLogs, setWeightLogs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [shareData, setShareData] = useState(null);
 
   const unit = profile?.unit_system === 'imperial' ? 'lbs' : 'kg';
 
@@ -40,10 +47,18 @@ export const ProfilePage = () => {
     loadWeightHistory();
   }, [loadWeightHistory]);
 
-  const handleDeleteWeight = async (logId) => {
-    if (!user) return;
-    await weightService.deleteWeightLog(user.id, logId);
-    loadWeightHistory();
+  const handleConfirmDelete = async () => {
+    if (!user || !deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await weightService.deleteWeightLog(user.id, deleteTarget.id);
+      setDeleteTarget(null);
+      loadWeightHistory();
+    } catch {
+      // ignore
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const currentWeight = weightLogs.length > 0
@@ -169,9 +184,10 @@ export const ProfilePage = () => {
               <div key={log.id} className="py-3 flex items-center justify-between gap-3 text-xs">
                 <div className="flex items-center gap-3 min-w-0">
                   {log.photo_url ? (
-                    <img
+                    <ClickableImage
                       src={log.photo_url}
-                      alt="Check-in thumbnail"
+                      alt="Check-in photo"
+                      title={`${log.weight_kg} ${unit} Check-in`}
                       className="w-12 h-12 rounded-xl object-cover border border-white/10 shrink-0"
                     />
                   ) : (
@@ -198,13 +214,34 @@ export const ProfilePage = () => {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => handleDeleteWeight(log.id)}
-                  className="p-1.5 text-slate-500 hover:text-rose-400 transition-colors"
-                  title="Delete weight entry"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setShareData({
+                      weight: log.weight_kg,
+                      body_fat: log.body_fat_percentage,
+                      unit,
+                      date: log.date,
+                      notes: log.notes,
+                      photo_url: log.photo_url,
+                      user_name: profile?.full_name || user?.email?.split('@')[0],
+                    })}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-lime hover:bg-white/5 transition-colors"
+                    title="Share check-in card"
+                    aria-label="Share check-in"
+                  >
+                    <Share2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTarget(log)}
+                    className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                    title="Delete weight entry"
+                    aria-label="Delete entry"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -215,11 +252,27 @@ export const ProfilePage = () => {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Modals */}
       <WeightLoggerModal
         isOpen={isWeightModalOpen}
         onClose={() => setIsWeightModalOpen(false)}
         onWeightLogged={loadWeightHistory}
+      />
+
+      <ConfirmDeleteModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Check-in Log"
+        message={`Are you sure you want to delete this ${deleteTarget?.weight_kg || ''} ${unit} check-in entry? This action cannot be undone.`}
+        isLoading={isDeleting}
+      />
+
+      <ShareCardModal
+        isOpen={!!shareData}
+        onClose={() => setShareData(null)}
+        type="checkin"
+        data={shareData}
       />
     </div>
   );

@@ -59,6 +59,35 @@ router.post('/food', authMiddleware, async (req, res) => {
   }
 });
 
+// PUT /api/nutrition/food/:id - Edit food entry
+router.put('/food/:id', authMiddleware, async (req, res) => {
+  try {
+    const { date, mealType, foodName, servingSize, calories, proteinG, carbsG, fatG, photoUrl, photo_url } = req.body;
+
+    const item = await Nutrition.findOne({ _id: req.params.id, userId: req.userId });
+    if (!item) {
+      return res.status(404).json({ error: 'Food entry not found.' });
+    }
+
+    if (date) item.date = date;
+    if (mealType) item.mealType = mealType;
+    if (foodName) item.foodName = foodName;
+    if (servingSize !== undefined) item.servingSize = servingSize;
+    if (calories !== undefined) item.calories = Number(calories) || 0;
+    if (proteinG !== undefined) item.proteinG = Number(proteinG) || 0;
+    if (carbsG !== undefined) item.carbsG = Number(carbsG) || 0;
+    if (fatG !== undefined) item.fatG = Number(fatG) || 0;
+    if (photoUrl !== undefined || photo_url !== undefined) {
+      item.photoUrl = photoUrl || photo_url || null;
+    }
+
+    await item.save();
+    res.json({ data: item.toJSON() });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Failed to update food log.' });
+  }
+});
+
 // DELETE /api/nutrition/food/:id
 router.delete('/food/:id', authMiddleware, async (req, res) => {
   try {

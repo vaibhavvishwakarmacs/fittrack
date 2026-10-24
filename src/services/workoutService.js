@@ -1,12 +1,21 @@
 import { api } from '../lib/api';
+import { fastCache } from '../lib/cache';
 
 const LOCAL_WORKOUTS_KEY = 'fittrack_user_workouts_';
 
 export const workoutService = {
   async getWorkouts(userId) {
+    const cacheKey = `workouts:${userId}`;
+    const cached = fastCache.get(cacheKey);
+    if (cached) {
+      return { data: cached, error: null };
+    }
+
     try {
       const data = await api.get('/workouts');
-      return { data: data.data || [], error: null };
+      const list = data.data || [];
+      fastCache.set(cacheKey, list, 30000);
+      return { data: list, error: null };
     } catch (err) {
       const stored = localStorage.getItem(`${LOCAL_WORKOUTS_KEY}${userId}`);
       if (stored) {
@@ -19,6 +28,7 @@ export const workoutService = {
   },
 
   async createWorkout(userId, payload) {
+    fastCache.invalidatePrefix(`workouts:${userId}`);
     try {
       const data = await api.post('/workouts', payload);
       return { data: data.data, error: null };
@@ -69,7 +79,36 @@ export const workoutService = {
     }
   },
 
+  async updateWorkout(userId, workoutId, payload) {
+    fastCache.invalidatePrefix(`workouts:${userId}`);
+    try {
+      const data = await api.put(`/workouts/${workoutId}`, payload);
+      return { data: data.data, error: null };
+    } catch (err) {
+      const stored = localStorage.getItem(`${LOCAL_WORKOUTS_KEY}${userId}`);
+      if (stored) {
+        try {
+          const list = JSON.parse(stored);
+          const idx = list.findIndex((w) => w.id === workoutId);
+          if (idx !== -1) {
+            list[idx] = {
+              ...list[idx],
+              title: payload.title || list[idx].title,
+              category: payload.category || list[idx].category,
+              notes: payload.notes !== undefined ? payload.notes : list[idx].notes,
+              duration_minutes: payload.durationMinutes ? Number(payload.durationMinutes) : list[idx].duration_minutes,
+            };
+            localStorage.setItem(`${LOCAL_WORKOUTS_KEY}${userId}`, JSON.stringify(list));
+            return { data: list[idx], error: null };
+          }
+        } catch {}
+      }
+      return { data: null, error: err };
+    }
+  },
+
   async deleteWorkout(userId, workoutId) {
+    fastCache.invalidatePrefix(`workouts:${userId}`);
     try {
       await api.delete(`/workouts/${workoutId}`);
       return { success: true, error: null };

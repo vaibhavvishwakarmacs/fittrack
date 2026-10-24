@@ -8,6 +8,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { formatDateToISO } from '../../lib/utils';
 import { Scale, Percent, Camera, X } from 'lucide-react';
+import { ClickableImage } from '../common/ImageViewerModal';
 
 export const WeightLoggerModal = ({
   isOpen,
@@ -141,11 +142,16 @@ export const WeightLoggerModal = ({
           </label>
           {photoPreview ? (
             <div className="relative rounded-2xl overflow-hidden border border-white/10 aspect-video max-h-48 bg-dark-950 flex items-center justify-center">
-              <img src={photoPreview} alt="Check-in preview" className="w-full h-full object-cover" />
+              <ClickableImage
+                src={photoPreview}
+                alt="Check-in preview"
+                title="Check-in photo preview"
+                className="w-full h-full object-cover"
+              />
               <button
                 type="button"
                 onClick={handleClearPhoto}
-                className="absolute top-2 right-2 p-1.5 bg-dark-900/80 hover:bg-dark-900 rounded-full text-white"
+                className="absolute top-2 right-2 p-1.5 bg-dark-900/80 hover:bg-dark-900 rounded-full text-white z-10"
                 title="Remove photo"
               >
                 <X className="w-4 h-4" />

@@ -8,6 +8,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { formatDateToISO } from '../../lib/utils';
 import { Sparkles, Plus, Flame, Camera, Loader2, X, Image as ImageIcon } from 'lucide-react';
 import { api } from '../../lib/api';
+import { ClickableImage } from '../common/ImageViewerModal';
 
 const PRESET_MEALS = [
   { name: 'Grilled Chicken & Rice', mealType: 'lunch', serving: '200g bowl', cal: 460, p: 44, c: 48, f: 8 },
@@ -24,9 +25,12 @@ export const FoodLoggerModal = ({
   onFoodLogged,
   defaultDate,
   defaultMeal = 'lunch',
+  initialFood = null,
 }) => {
   const { user } = useAuth();
   const { success, error: toastError } = useToast();
+
+  const isEditMode = Boolean(initialFood && initialFood.id);
 
   const [date, setDate] = useState(defaultDate || formatDateToISO());
   const [mealType, setMealType] = useState(defaultMeal);
@@ -39,6 +43,31 @@ export const FoodLoggerModal = ({
   const [foodPhotoUrl, setFoodPhotoUrl] = useState('');
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Sync state whenever modal opens or initialFood changes
+  React.useEffect(() => {
+    if (initialFood) {
+      setDate(initialFood.date || defaultDate || formatDateToISO());
+      setMealType(initialFood.meal_type || initialFood.mealType || defaultMeal);
+      setFoodName(initialFood.food_name || initialFood.foodName || '');
+      setServingSize(initialFood.serving_size || initialFood.servingSize || '1 serving');
+      setCalories(initialFood.calories !== undefined ? initialFood.calories : '');
+      setProtein(initialFood.protein_g ?? initialFood.proteinG ?? '');
+      setCarbs(initialFood.carbs_g ?? initialFood.carbsG ?? '');
+      setFat(initialFood.fat_g ?? initialFood.fatG ?? '');
+      setFoodPhotoUrl(initialFood.photo_url || initialFood.photoUrl || '');
+    } else {
+      setDate(defaultDate || formatDateToISO());
+      setMealType(defaultMeal);
+      setFoodName('');
+      setServingSize('1 serving');
+      setCalories('');
+      setProtein('');
+      setCarbs('');
+      setFat('');
+      setFoodPhotoUrl('');
+    }
+  }, [initialFood, isOpen, defaultDate, defaultMeal]);
 
   const handleApplyPreset = (preset) => {
     setFoodName(preset.name);
@@ -85,7 +114,7 @@ export const FoodLoggerModal = ({
 
     setIsSubmitting(true);
     try {
-      const { error } = await nutritionService.addFoodLog(user.id, {
+      const payload = {
         date,
         mealType,
         foodName: foodName.trim(),
@@ -95,20 +124,21 @@ export const FoodLoggerModal = ({
         carbsG: Number(carbs) || 0,
         fatG: Number(fat) || 0,
         photoUrl: foodPhotoUrl || null,
-      });
+      };
 
-      if (error) {
-        toastError(error.message || 'Failed to save food log');
+      let result;
+      if (isEditMode) {
+        result = await nutritionService.updateFoodLog(user.id, initialFood.id, payload);
       } else {
-        success(`Logged "${foodName}" (${calories} kcal)`);
+        result = await nutritionService.addFoodLog(user.id, payload);
+      }
+
+      if (result.error) {
+        toastError(result.error.message || `Failed to ${isEditMode ? 'update' : 'save'} food log`);
+      } else {
+        success(isEditMode ? `Updated "${foodName}"` : `Logged "${foodName}" (${calories} kcal)`);
         onFoodLogged();
         onClose();
-        setFoodName('');
-        setCalories('');
-        setProtein('');
-        setCarbs('');
-        setFat('');
-        setFoodPhotoUrl('');
       }
     } catch (err) {
       toastError(err?.message || 'Error saving food entry');
@@ -121,8 +151,8 @@ export const FoodLoggerModal = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Log Meal or Food"
-      description="Record calories, macros, and photo into GYM food folder"
+      title={isEditMode ? 'Edit Food Entry' : 'Log Meal or Food'}
+      description={isEditMode ? 'Update calories, macronutrients, or meal photo' : 'Record calories, macros, and photo into GYM food folder'}
       maxWidth="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4 text-left">
@@ -246,15 +276,16 @@ export const FoodLoggerModal = ({
 
           {foodPhotoUrl ? (
             <div className="relative inline-block mt-1">
-              <img
+              <ClickableImage
                 src={foodPhotoUrl}
-                alt="Meal preview"
+                alt="Meal photo preview"
+                title={name || "Meal photo preview"}
                 className="w-24 h-24 rounded-2xl object-cover border border-lime/40 shadow-md"
               />
               <button
                 type="button"
                 onClick={() => setFoodPhotoUrl('')}
-                className="absolute -top-2 -right-2 p-1 rounded-full bg-rose-500 text-white shadow-md hover:bg-rose-600 transition-colors"
+                className="absolute -top-2 -right-2 p-1 rounded-full bg-rose-500 text-white shadow-md hover:bg-rose-600 transition-colors z-10"
                 title="Remove photo"
               >
                 <X className="w-3.5 h-3.5" />
@@ -289,7 +320,7 @@ export const FoodLoggerModal = ({
             isLoading={isSubmitting || isUploadingPhoto}
             leftIcon={<Plus className="w-4 h-4" />}
           >
-            Save Meal
+            {isEditMode ? 'Update Food' : 'Save Meal'}
           </Button>
         </div>
       </form>

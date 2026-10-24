@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
+import { ClickableImage } from '../common/ImageViewerModal';
 import { EXERCISE_VARIATIONS_BY_MUSCLE, MUSCLE_GROUPS } from '../../data/muscleData';
 import { Dumbbell, Plus, Sparkles, Image, Check, ChevronRight, Trash2 } from 'lucide-react';
 import { api } from '../../lib/api';
@@ -196,10 +197,12 @@ export const ExerciseVariationPicker = ({
               </div>
               {newImageUrl && (
                 <div className="mt-2">
-                  <img
+                  <ClickableImage
                     src={newImageUrl}
                     alt="Preview"
-                    className="w-20 h-20 rounded-xl object-cover border border-white/10"
+                    title="Exercise Preview"
+                    className="w-20 h-20 rounded-xl"
+                    imgClassName="w-20 h-20 rounded-xl object-cover border border-white/10"
                   />
                 </div>
               )}
@@ -250,10 +253,13 @@ export const ExerciseVariationPicker = ({
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     {v.image ? (
-                      <img
+                      <ClickableImage
                         src={v.image}
                         alt={v.name}
-                        className="w-12 h-12 rounded-xl object-cover border border-white/10 shrink-0"
+                        title={v.name}
+                        subtitle={v.target}
+                        className="w-12 h-12 rounded-xl shrink-0"
+                        imgClassName="w-12 h-12 rounded-xl object-cover border border-white/10"
                       />
                     ) : (
                       <div className="w-12 h-12 rounded-xl bg-dark-900 border border-white/5 flex items-center justify-center text-lime shrink-0">

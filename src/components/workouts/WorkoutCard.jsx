@@ -7,6 +7,8 @@ import {
   ChevronDown,
   ChevronUp,
   Trash2,
+  Pencil,
+  Share2,
   Calendar,
 } from 'lucide-react';
 
@@ -14,6 +16,8 @@ export const WorkoutCard = ({
   workout,
   unit = 'kg',
   onDelete,
+  onEdit,
+  onShare,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -47,16 +51,40 @@ export const WorkoutCard = ({
           )}
         </div>
 
-        {onDelete && (
-          <button
-            onClick={() => onDelete(workout.id)}
-            className="text-slate-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10 transition-colors"
-            title="Delete workout"
-            aria-label="Delete workout"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        )}
+        <div className="flex items-center gap-1 shrink-0">
+          {onShare && (
+            <button
+              onClick={() => onShare(workout)}
+              className="text-slate-400 hover:text-lime p-1.5 rounded-lg hover:bg-lime/10 active:scale-95 transition-all"
+              title="Share workout card"
+              aria-label="Share workout"
+            >
+              <Share2 className="w-4 h-4" />
+            </button>
+          )}
+
+          {onEdit && (
+            <button
+              onClick={() => onEdit(workout)}
+              className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-white/5 active:scale-95 transition-all"
+              title="Edit workout"
+              aria-label="Edit workout"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
+          )}
+
+          {onDelete && (
+            <button
+              onClick={() => onDelete(workout)}
+              className="text-slate-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10 active:scale-95 transition-all"
+              title="Delete workout"
+              aria-label="Delete workout"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Metrics Row */}

@@ -5,7 +5,7 @@ import { formatDateToISO, formatDistance } from '../../lib/utils';
 import { StatCard } from '../../components/common/StatCard';
 import { Button } from '../../components/common/Button';
 import { StepLoggerModal } from '../../components/activity/StepLoggerModal';
-import { LoadingSpinner } from '../../components/common/LoadingSpinner';
+import { ActivitySkeleton } from '../../components/common/Skeleton';
 import {
   BarChart,
   Bar,
@@ -85,8 +85,8 @@ export const ActivityPage = () => {
     });
   }
 
-  if (isLoading) {
-    return <LoadingSpinner label="Loading activity logs..." size="lg" />;
+  if (isLoading && !todayActivity && weeklyLogs.length === 0) {
+    return <ActivitySkeleton />;
   }
 
   return (

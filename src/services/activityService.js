@@ -1,12 +1,21 @@
 import { api } from '../lib/api';
+import { fastCache } from '../lib/cache';
 
 const LOCAL_ACTIVITY_KEY = 'fittrack_user_activity_';
 
 export const activityService = {
   async getActivityByDate(userId, date) {
+    const cacheKey = `activity:${userId}:${date}`;
+    const cached = fastCache.get(cacheKey);
+    if (cached) {
+      return { data: cached, error: null };
+    }
+
     try {
       const data = await api.get(`/activity?date=${date}`);
-      return { data: data.data || null, error: null };
+      const result = data.data || null;
+      fastCache.set(cacheKey, result, 30000);
+      return { data: result, error: null };
     } catch (err) {
       const stored = localStorage.getItem(`${LOCAL_ACTIVITY_KEY}${userId}`);
       if (stored) {
@@ -21,9 +30,17 @@ export const activityService = {
   },
 
   async getActivityRange(userId, startDate, endDate) {
+    const cacheKey = `activity_range:${userId}:${startDate}:${endDate}`;
+    const cached = fastCache.get(cacheKey);
+    if (cached) {
+      return { data: cached, error: null };
+    }
+
     try {
       const data = await api.get(`/activity/range?startDate=${startDate}&endDate=${endDate}`);
-      return { data: data.data || [], error: null };
+      const list = data.data || [];
+      fastCache.set(cacheKey, list, 30000);
+      return { data: list, error: null };
     } catch (err) {
       const stored = localStorage.getItem(`${LOCAL_ACTIVITY_KEY}${userId}`);
       if (stored) {
@@ -38,6 +55,8 @@ export const activityService = {
   },
 
   async upsertActivity(userId, payload) {
+    fastCache.invalidatePrefix(`activity:${userId}`);
+    fastCache.invalidatePrefix(`activity_range:${userId}`);
     try {
       const data = await api.post('/activity', payload);
       return { data: data.data, error: null };
@@ -59,16 +78,15 @@ export const activityService = {
       };
 
       const stored = localStorage.getItem(`${LOCAL_ACTIVITY_KEY}${userId}`);
-      let list = stored ? JSON.parse(stored) : [];
-      const existingIdx = list.findIndex((a) => a.date === payload.date);
-
-      if (existingIdx >= 0) {
-        list[existingIdx] = { ...list[existingIdx], ...record };
+      const list = stored ? JSON.parse(stored) : [];
+      const idx = list.findIndex((a) => a.date === payload.date);
+      if (idx !== -1) {
+        list[idx] = { ...list[idx], ...record };
       } else {
         list.push(record);
       }
-
       localStorage.setItem(`${LOCAL_ACTIVITY_KEY}${userId}`, JSON.stringify(list));
+
       return { data: record, error: null };
     }
   },

@@ -1,19 +1,29 @@
 import { api } from '../lib/api';
+import { fastCache } from '../lib/cache';
 
 const LOCAL_NUTRITION_KEY = 'fittrack_user_nutrition_';
 const LOCAL_WATER_KEY = 'fittrack_user_water_';
 
 export const nutritionService = {
   async getNutritionLogs(userId, date) {
+    const cacheKey = `nutrition:${userId}:${date}`;
+    const cached = fastCache.get(cacheKey);
+    if (cached) {
+      return { data: cached, error: null };
+    }
+
     try {
       const data = await api.get(`/nutrition?date=${date}`);
-      return { data: data.data || [], error: null };
+      const logs = data.data || [];
+      fastCache.set(cacheKey, logs, 30000);
+      return { data: logs, error: null };
     } catch (err) {
       const stored = localStorage.getItem(`${LOCAL_NUTRITION_KEY}${userId}`);
       if (stored) {
         try {
           const list = JSON.parse(stored);
-          return { data: list.filter((item) => item.date === date), error: null };
+          const filtered = list.filter((item) => item.date === date);
+          return { data: filtered, error: null };
         } catch {}
       }
       return { data: [], error: null };
@@ -21,6 +31,7 @@ export const nutritionService = {
   },
 
   async addFoodLog(userId, payload) {
+    fastCache.invalidatePrefix(`nutrition:${userId}`);
     try {
       const data = await api.post('/nutrition/food', payload);
       return { data: data.data, error: null };
@@ -46,7 +57,41 @@ export const nutritionService = {
     }
   },
 
+  async updateFoodLog(userId, logId, payload) {
+    fastCache.invalidatePrefix(`nutrition:${userId}`);
+    try {
+      const data = await api.put(`/nutrition/food/${logId}`, payload);
+      return { data: data.data, error: null };
+    } catch (err) {
+      const stored = localStorage.getItem(`${LOCAL_NUTRITION_KEY}${userId}`);
+      if (stored) {
+        try {
+          const list = JSON.parse(stored);
+          const idx = list.findIndex((item) => item.id === logId);
+          if (idx !== -1) {
+            list[idx] = {
+              ...list[idx],
+              date: payload.date || list[idx].date,
+              meal_type: payload.mealType || list[idx].meal_type,
+              food_name: payload.foodName || list[idx].food_name,
+              serving_size: payload.servingSize !== undefined ? payload.servingSize : list[idx].serving_size,
+              calories: payload.calories !== undefined ? Number(payload.calories) : list[idx].calories,
+              protein_g: payload.proteinG !== undefined ? Number(payload.proteinG) : list[idx].protein_g,
+              carbs_g: payload.carbsG !== undefined ? Number(payload.carbsG) : list[idx].carbs_g,
+              fat_g: payload.fatG !== undefined ? Number(payload.fatG) : list[idx].fat_g,
+              photo_url: payload.photoUrl !== undefined ? payload.photoUrl : list[idx].photo_url,
+            };
+            localStorage.setItem(`${LOCAL_NUTRITION_KEY}${userId}`, JSON.stringify(list));
+            return { data: list[idx], error: null };
+          }
+        } catch {}
+      }
+      return { data: null, error: err };
+    }
+  },
+
   async deleteFoodLog(userId, logId) {
+    fastCache.invalidatePrefix(`nutrition:${userId}`);
     try {
       await api.delete(`/nutrition/food/${logId}`);
       return { success: true, error: null };
@@ -62,9 +107,17 @@ export const nutritionService = {
   },
 
   async getWaterLogs(userId, date) {
+    const cacheKey = `water:${userId}:${date}`;
+    const cached = fastCache.get(cacheKey);
+    if (cached) {
+      return { data: cached.data, totalMl: cached.totalMl, error: null };
+    }
+
     try {
       const data = await api.get(`/nutrition?date=${date}`);
-      return { data: data.waterLogs || [], totalMl: data.totalWaterMl || 0, error: null };
+      const res = { data: data.waterLogs || [], totalMl: data.totalWaterMl || 0 };
+      fastCache.set(cacheKey, res, 30000);
+      return { data: res.data, totalMl: res.totalMl, error: null };
     } catch (err) {
       const stored = localStorage.getItem(`${LOCAL_WATER_KEY}${userId}`);
       if (stored) {
@@ -80,6 +133,7 @@ export const nutritionService = {
   },
 
   async logWater(userId, date, amountMl) {
+    fastCache.invalidatePrefix(`water:${userId}`);
     try {
       const data = await api.post('/nutrition/water', { date, amountMl });
       return { data: data.data, error: null };

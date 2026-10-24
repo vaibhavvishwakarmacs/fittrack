@@ -10,12 +10,14 @@ import { StatCard } from '../../components/common/StatCard';
 import { Button } from '../../components/common/Button';
 import { EmptyState } from '../../components/common/EmptyState';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
+import { DashboardSkeleton } from '../../components/common/Skeleton';
 import { MacroRing } from '../../components/nutrition/MacroRing';
 import { WorkoutCard } from '../../components/workouts/WorkoutCard';
 import { WorkoutLoggerModal } from '../../components/workouts/WorkoutLoggerModal';
 import { FoodLoggerModal } from '../../components/nutrition/FoodLoggerModal';
 import { StepLoggerModal } from '../../components/activity/StepLoggerModal';
 import { WeightLoggerModal } from '../../components/profile/WeightLoggerModal';
+import { ShareCardModal } from '../../components/common/ShareCardModal';
 import {
   Dumbbell,
   Flame,
@@ -23,6 +25,7 @@ import {
   Droplets,
   Plus,
   Scale,
+  Share2,
   ChevronRight,
 } from 'lucide-react';
 
@@ -42,6 +45,7 @@ export const DashboardPage = () => {
   const [isFoodModalOpen, setIsFoodModalOpen] = useState(false);
   const [isStepModalOpen, setIsStepModalOpen] = useState(false);
   const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
+  const [isShareDailyOpen, setIsShareDailyOpen] = useState(false);
 
   const loadDashboardData = useCallback(async () => {
     if (!user) return;
@@ -85,8 +89,8 @@ export const DashboardPage = () => {
   const todaySteps = activity?.steps || 0;
   const todayWorkout = workouts.find((w) => (w.started_at || '').startsWith(today));
 
-  if (isLoading) {
-    return <LoadingSpinner label="Loading fitness dashboard..." size="lg" />;
+  if (isLoading && workouts.length === 0 && !activity) {
+    return <DashboardSkeleton />;
   }
 
   const firstName = profile?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'Athlete';
@@ -126,7 +130,7 @@ export const DashboardPage = () => {
               'Start Workout Session'
             )}
           </Button>
-          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2">
+          <div className="grid grid-cols-3 sm:flex sm:items-center gap-2">
             <Button
               size="sm"
               variant="secondary"
@@ -144,6 +148,16 @@ export const DashboardPage = () => {
               className="justify-center py-2"
             >
               Weigh-in
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setIsShareDailyOpen(true)}
+              leftIcon={<Share2 className="w-3.5 h-3.5 text-lime" />}
+              className="justify-center py-2"
+              title="Share Fitness Card"
+            >
+              Share
             </Button>
           </div>
         </div>
@@ -329,6 +343,23 @@ export const DashboardPage = () => {
         onClose={() => setIsWeightModalOpen(false)}
         onWeightLogged={loadDashboardData}
         defaultDate={today}
+      />
+
+      {/* Share Daily / Weight Fitness Card */}
+      <ShareCardModal
+        isOpen={isShareDailyOpen}
+        onClose={() => setIsShareDailyOpen(false)}
+        type="daily"
+        unit={unit}
+        data={{
+          user_name: firstName,
+          current_weight_kg: profile?.current_weight_kg,
+          target_weight_kg: profile?.target_weight_kg,
+          steps: todaySteps,
+          water_ml: waterMl,
+          calories_burned: (activity?.active_calories || 0) + (todayWorkout?.calories_burned || 0),
+          date: today,
+        }}
       />
     </div>
   );

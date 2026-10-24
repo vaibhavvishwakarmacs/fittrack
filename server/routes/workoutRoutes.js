@@ -82,6 +82,31 @@ router.post('/', authMiddleware, async (req, res) => {
   }
 });
 
+// PUT /api/workouts/:id - Edit workout
+router.put('/:id', authMiddleware, async (req, res) => {
+  try {
+    const { title, category, durationMinutes, notes } = req.body;
+
+    const workout = await Workout.findOne({ _id: req.params.id, userId: req.userId });
+    if (!workout) {
+      return res.status(404).json({ error: 'Workout not found.' });
+    }
+
+    if (title) workout.title = title;
+    if (category) workout.category = category;
+    if (durationMinutes !== undefined) {
+      workout.durationMinutes = Number(durationMinutes) || workout.durationMinutes;
+      workout.caloriesBurned = Math.round(workout.durationMinutes * 6.5);
+    }
+    if (notes !== undefined) workout.notes = notes;
+
+    await workout.save();
+    res.json({ data: workout.toJSON() });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Failed to update workout.' });
+  }
+});
+
 // DELETE /api/workouts/:id
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {

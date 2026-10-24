@@ -1,19 +1,30 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import { useWorkoutSession } from '../../contexts/WorkoutSessionContext';
 import { workoutService } from '../../services/workoutService';
 import { WorkoutCard } from '../../components/workouts/WorkoutCard';
+import { WorkoutEditModal } from '../../components/workouts/WorkoutEditModal';
+import { ConfirmDeleteModal } from '../../components/common/ConfirmDeleteModal';
+import { WorkoutsSkeleton } from '../../components/common/Skeleton';
+import { ShareCardModal } from '../../components/common/ShareCardModal';
 import { Button } from '../../components/common/Button';
 import { EmptyState } from '../../components/common/EmptyState';
-import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { Dumbbell, Plus, Clock, Trophy } from 'lucide-react';
 
 export const WorkoutsPage = () => {
   const { user, profile } = useAuth();
+  const { success, error: toastError } = useToast();
   const { startSession, hasActiveSavedSession } = useWorkoutSession();
   const [workouts, setWorkouts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState('all');
+
+  // Modals state
+  const [editingWorkout, setEditingWorkout] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [sharingWorkout, setSharingWorkout] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const unit = profile?.unit_system === 'imperial' ? 'lbs' : 'kg';
 
@@ -33,15 +44,28 @@ export const WorkoutsPage = () => {
     loadWorkouts();
   }, [loadWorkouts]);
 
-  const handleDelete = async (workoutId) => {
-    if (!user) return;
-    await workoutService.deleteWorkout(user.id, workoutId);
-    loadWorkouts();
+  const handleConfirmDelete = async () => {
+    if (!user || !deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      const { error } = await workoutService.deleteWorkout(user.id, deleteTarget.id);
+      if (error) {
+        toastError(error.message || 'Failed to delete workout');
+      } else {
+        success(`Deleted workout "${deleteTarget.title}"`);
+        setDeleteTarget(null);
+        loadWorkouts();
+      }
+    } catch (err) {
+      toastError(err?.message || 'Error deleting workout');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // Stats calculation
-  const totalVolume = workouts.reduce((acc, w) => acc + (w.total_volume_kg || 0), 0);
-  const totalMinutes = workouts.reduce((acc, w) => acc + (w.duration_minutes || 0), 0);
+  const totalVolume = workouts.reduce((acc, w) => acc + (w.total_volume_kg || w.totalVolumeKg || 0), 0);
+  const totalMinutes = workouts.reduce((acc, w) => acc + (w.duration_minutes || w.durationMinutes || 0), 0);
   const totalHours = (totalMinutes / 60).toFixed(1);
 
   const filteredWorkouts = workouts.filter((w) => {
@@ -57,8 +81,9 @@ export const WorkoutsPage = () => {
     { id: 'hiit', label: 'HIIT' },
   ];
 
-  if (isLoading) {
-    return <LoadingSpinner label="Loading workout history..." size="lg" />;
+  // Sleek Skeleton state instead of blank spinner
+  if (isLoading && workouts.length === 0) {
+    return <WorkoutsSkeleton />;
   }
 
   return (
@@ -100,7 +125,9 @@ export const WorkoutsPage = () => {
           <p className="text-[10px] text-slate-400 uppercase font-semibold">Volume Moved</p>
           <div className="flex items-center justify-center gap-1.5 mt-0.5">
             <Dumbbell className="w-3.5 h-3.5 text-sky-400" />
-            <span className="text-base sm:text-lg font-black text-white font-sans">{Math.round(totalVolume).toLocaleString()} <span className="text-[10px] font-normal text-slate-400">{unit}</span></span>
+            <span className="text-base sm:text-lg font-black text-white font-sans">
+              {Math.round(totalVolume).toLocaleString()} <span className="text-[10px] font-normal text-slate-400">{unit}</span>
+            </span>
           </div>
         </div>
 
@@ -108,7 +135,9 @@ export const WorkoutsPage = () => {
           <p className="text-[10px] text-slate-400 uppercase font-semibold">Training Time</p>
           <div className="flex items-center justify-center gap-1.5 mt-0.5">
             <Clock className="w-3.5 h-3.5 text-amber-400" />
-            <span className="text-base sm:text-lg font-black text-white font-sans">{totalHours} <span className="text-[10px] font-normal text-slate-400">hrs</span></span>
+            <span className="text-base sm:text-lg font-black text-white font-sans">
+              {totalHours} <span className="text-[10px] font-normal text-slate-400">hrs</span>
+            </span>
           </div>
         </div>
       </div>
@@ -122,7 +151,7 @@ export const WorkoutsPage = () => {
             className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${
               filter === cat.id
                 ? 'bg-lime text-dark-950 font-bold shadow-lime-sm'
-                : 'bg-dark-850 hover:bg-dark-800 text-slate-300 border border-white/5'
+                : 'bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/5'
             }`}
           >
             {cat.label}
@@ -138,7 +167,9 @@ export const WorkoutsPage = () => {
               key={w.id}
               workout={w}
               unit={unit}
-              onDelete={handleDelete}
+              onEdit={(target) => setEditingWorkout(target)}
+              onDelete={(target) => setDeleteTarget(target)}
+              onShare={(target) => setSharingWorkout(target)}
             />
           ))
         ) : (
@@ -152,6 +183,44 @@ export const WorkoutsPage = () => {
           />
         )}
       </div>
+
+      {/* Edit Workout Modal */}
+      <WorkoutEditModal
+        isOpen={Boolean(editingWorkout)}
+        onClose={() => setEditingWorkout(null)}
+        workout={editingWorkout}
+        onWorkoutUpdated={loadWorkouts}
+      />
+
+      {/* Confirmation Modal on Delete */}
+      <ConfirmDeleteModal
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Workout Session"
+        itemName={deleteTarget?.title}
+        message="Are you sure you want to delete this completed workout? All recorded sets and volume will be removed."
+        isDeleting={isDeleting}
+      />
+
+      {/* Share Workout Card Modal */}
+      <ShareCardModal
+        isOpen={Boolean(sharingWorkout)}
+        onClose={() => setSharingWorkout(null)}
+        type="workout"
+        unit={unit}
+        data={sharingWorkout ? {
+          title: sharingWorkout.title,
+          category: sharingWorkout.category,
+          duration_minutes: sharingWorkout.duration_minutes || sharingWorkout.durationMinutes,
+          total_volume_kg: sharingWorkout.total_volume_kg || sharingWorkout.totalVolumeKg,
+          calories_burned: sharingWorkout.calories_burned || sharingWorkout.caloriesBurned,
+          targetMuscles: sharingWorkout.targetMuscles || sharingWorkout.target_muscles || [],
+          notes: sharingWorkout.notes,
+          exercises: sharingWorkout.exercises || [],
+          date: (sharingWorkout.started_at || sharingWorkout.startedAt || '').split('T')[0],
+        } : {}}
+      />
     </div>
   );
 };

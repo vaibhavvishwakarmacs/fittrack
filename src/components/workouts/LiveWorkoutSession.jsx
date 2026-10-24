@@ -4,6 +4,7 @@ import { BodyTargetDiagram } from './BodyTargetDiagram';
 import { AppleRestTimer } from './AppleRestTimer';
 import { ExerciseVariationPicker } from './ExerciseVariationPicker';
 import { Button } from '../common/Button';
+import { ClickableImage } from '../common/ImageViewerModal';
 import { workoutService } from '../../services/workoutService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -869,10 +870,13 @@ export const LiveWorkoutSession = ({ isOpen, onClose, onWorkoutSaved }) => {
                       </ul>
 
                       {currentExercise.image && (
-                        <img
+                        <ClickableImage
                           src={currentExercise.image}
                           alt={currentExercise.name}
-                          className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover border border-white/10 shrink-0 self-center sm:self-auto"
+                          title={currentExercise.name}
+                          subtitle={`Target: ${currentExercise.target || currentExercise.muscle}`}
+                          className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl shrink-0 self-center sm:self-auto"
+                          imgClassName="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover border border-white/10"
                         />
                       )}
                     </div>

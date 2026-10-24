@@ -1,16 +1,22 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import { nutritionService } from '../../services/nutritionService';
 import { formatDateToISO, formatDisplayDate } from '../../lib/utils';
 import { MacroRing } from '../../components/nutrition/MacroRing';
 import { WaterTracker } from '../../components/nutrition/WaterTracker';
 import { FoodLoggerModal } from '../../components/nutrition/FoodLoggerModal';
+import { ConfirmDeleteModal } from '../../components/common/ConfirmDeleteModal';
+import { NutritionSkeleton } from '../../components/common/Skeleton';
+import { ClickableImage } from '../../components/common/ImageViewerModal';
+import { ShareCardModal } from '../../components/common/ShareCardModal';
 import { Button } from '../../components/common/Button';
-import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import {
   Utensils,
   Plus,
   Trash2,
+  Pencil,
+  Share2,
   ChevronLeft,
   ChevronRight,
   Sun,
@@ -21,14 +27,21 @@ import {
 
 export const NutritionPage = () => {
   const { user, profile } = useAuth();
+  const { success, error: toastError } = useToast();
   const [selectedDate, setSelectedDate] = useState(() => formatDateToISO());
   const [logs, setLogs] = useState([]);
   const [waterMl, setWaterMl] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Modal
+  // Modals state
   const [isFoodModalOpen, setIsFoodModalOpen] = useState(false);
   const [activeMealType, setActiveMealType] = useState('breakfast');
+  const [editingFood, setEditingFood] = useState(null);
+  const [sharingMeal, setSharingMeal] = useState(null);
+
+  // Delete confirmation
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const loadNutrition = useCallback(async () => {
     if (!user) return;
@@ -50,15 +63,35 @@ export const NutritionPage = () => {
     loadNutrition();
   }, [loadNutrition]);
 
-  const handleDeleteItem = async (logId) => {
-    if (!user) return;
-    await nutritionService.deleteFoodLog(user.id, logId);
-    loadNutrition();
-  };
-
   const handleOpenAddModal = (meal) => {
+    setEditingFood(null);
     setActiveMealType(meal);
     setIsFoodModalOpen(true);
+  };
+
+  const handleOpenEditModal = (item) => {
+    setEditingFood(item);
+    setActiveMealType(item.meal_type || item.mealType || 'lunch');
+    setIsFoodModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!user || !deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      const { error } = await nutritionService.deleteFoodLog(user.id, deleteTarget.id);
+      if (error) {
+        toastError(error.message || 'Failed to delete food entry');
+      } else {
+        success(`Deleted "${deleteTarget.food_name || deleteTarget.foodName || 'Food'}"`);
+        setDeleteTarget(null);
+        loadNutrition();
+      }
+    } catch (err) {
+      toastError(err?.message || 'Error deleting food entry');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // Date shifting
@@ -87,17 +120,18 @@ export const NutritionPage = () => {
     { type: 'snack', title: 'Snacks & Extras', icon: Cookie, iconColor: 'text-purple-400' },
   ];
 
-  if (isLoading) {
-    return <LoadingSpinner label="Loading daily nutrition..." size="lg" />;
+  // Sleek Skeleton state instead of jarring blank page
+  if (isLoading && logs.length === 0) {
+    return <NutritionSkeleton />;
   }
 
   return (
-    <div className="space-y-6 text-left animate-in fade-in pb-12">
+    <div className="space-y-4 text-left animate-in fade-in pb-12">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
-            <Utensils className="w-6 h-6 text-lime" />
+          <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight flex items-center gap-2">
+            <Utensils className="w-5 h-5 text-lime" />
             <span>Nutrition Diary</span>
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
@@ -158,7 +192,7 @@ export const NutritionPage = () => {
               key={type}
               className={`rounded-2xl transition-all border ${
                 mealLogs.length > 0
-                  ? 'p-4 sm:p-5 bg-white/[0.03] border-white/10 space-y-3'
+                  ? 'p-3.5 sm:p-5 bg-white/[0.03] border-white/10 space-y-3'
                   : 'p-3 bg-white/[0.015] hover:bg-white/[0.03] border-white/5 flex items-center justify-between'
               }`}
             >
@@ -187,40 +221,66 @@ export const NutritionPage = () => {
                     </Button>
                   </div>
 
-                  {/* Items list */}
+                  {/* Items list with Edit, Share & Confirm Delete */}
                   <div className="divide-y divide-white/[0.04] pt-1">
                     {mealLogs.map((item) => (
                       <div
                         key={item.id}
-                        className="py-2.5 flex items-center justify-between gap-3 text-xs"
+                        className="py-2.5 flex items-center justify-between gap-3 text-xs group"
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           {(item.photo_url || item.photoUrl) && (
-                            <img
+                            <ClickableImage
                               src={item.photo_url || item.photoUrl}
-                              alt={item.food_name}
-                              className="w-10 h-10 rounded-xl object-cover border border-white/10 shrink-0"
+                              alt={item.food_name || item.foodName}
+                              title={item.food_name || item.foodName}
+                              subtitle={`${item.calories} kcal • ${item.serving_size || item.servingSize || '1 serving'}`}
+                              className="w-10 h-10 rounded-xl shrink-0"
+                              imgClassName="w-10 h-10 rounded-xl object-cover border border-white/10"
                             />
                           )}
                           <div className="min-w-0">
-                            <p className="font-semibold text-white truncate">{item.food_name}</p>
+                            <p className="font-semibold text-white truncate">{item.food_name || item.foodName}</p>
                             <p className="text-[10px] text-slate-400">
-                              {item.serving_size} •{' '}
-                              <span className="text-sky-400">{item.protein_g}g P</span> •{' '}
-                              <span className="text-amber-400">{item.carbs_g}g C</span> •{' '}
-                              <span className="text-rose-400">{item.fat_g}g F</span>
+                              {item.serving_size || item.servingSize} •{' '}
+                              <span className="text-sky-400">{item.protein_g ?? item.proteinG}g P</span> •{' '}
+                              <span className="text-amber-400">{item.carbs_g ?? item.carbsG}g C</span> •{' '}
+                              <span className="text-rose-400">{item.fat_g ?? item.fatG}g F</span>
                             </p>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="font-bold text-amber-400 text-sm">
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="font-bold text-amber-400 text-sm mr-1">
                             {item.calories} <span className="text-[10px] text-slate-400 font-normal">kcal</span>
                           </span>
+
+                          {/* Share Button */}
                           <button
-                            onClick={() => handleDeleteItem(item.id)}
-                            className="p-1 text-slate-500 hover:text-rose-400 transition-colors"
+                            onClick={() => setSharingMeal(item)}
+                            className="p-1.5 text-slate-400 hover:text-lime rounded-lg hover:bg-lime/10 active:scale-95 transition-all"
+                            title="Share meal photo card"
+                            aria-label="Share meal"
+                          >
+                            <Share2 className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Edit Button */}
+                          <button
+                            onClick={() => handleOpenEditModal(item)}
+                            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 active:scale-95 transition-all"
+                            title="Edit food entry"
+                            aria-label="Edit food"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Delete Button with Confirmation */}
+                          <button
+                            onClick={() => setDeleteTarget(item)}
+                            className="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-rose-500/10 active:scale-95 transition-all"
                             title="Delete food entry"
+                            aria-label="Delete food"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -261,13 +321,46 @@ export const NutritionPage = () => {
         onWaterUpdated={loadNutrition}
       />
 
-      {/* Add Food Modal */}
+      {/* Add / Edit Food Modal */}
       <FoodLoggerModal
         isOpen={isFoodModalOpen}
-        onClose={() => setIsFoodModalOpen(false)}
+        onClose={() => {
+          setIsFoodModalOpen(false);
+          setEditingFood(null);
+        }}
         onFoodLogged={loadNutrition}
         defaultDate={selectedDate}
         defaultMeal={activeMealType}
+        initialFood={editingFood}
+      />
+
+      {/* Confirmation Modal on Delete */}
+      <ConfirmDeleteModal
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Food Entry"
+        itemName={deleteTarget?.food_name || deleteTarget?.foodName}
+        message="Are you sure you want to delete this food entry? This will adjust your daily calories and macros."
+        isDeleting={isDeleting}
+      />
+
+      {/* Share Meal Card Modal */}
+      <ShareCardModal
+        isOpen={Boolean(sharingMeal)}
+        onClose={() => setSharingMeal(null)}
+        type="meal"
+        data={sharingMeal ? {
+          food_name: sharingMeal.food_name || sharingMeal.foodName,
+          serving_size: sharingMeal.serving_size || sharingMeal.servingSize,
+          calories: sharingMeal.calories,
+          protein_g: sharingMeal.protein_g ?? sharingMeal.proteinG ?? 0,
+          carbs_g: sharingMeal.carbs_g ?? sharingMeal.carbsG ?? 0,
+          fat_g: sharingMeal.fat_g ?? sharingMeal.fatG ?? 0,
+          photo_url: sharingMeal.photo_url || sharingMeal.photoUrl,
+          meal_type: sharingMeal.meal_type || sharingMeal.mealType,
+          date: selectedDate,
+        } : {}}
       />
     </div>
   );
