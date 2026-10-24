@@ -57,6 +57,16 @@ export const BodyTargetDiagram = ({ targetedMuscles = [], activeExerciseMuscle =
             <title>Right Pectoral</title>
           </path>
 
+          {/* Cardio Heart / Pulse Highlight */}
+          {(isTargeted('cardio') || isCurrent('cardio')) && (
+            <g className="cursor-pointer">
+              <circle cx="75" cy="62" r="7" className="fill-rose-500/50 animate-ping" />
+              <circle cx="75" cy="62" r="5" className="fill-rose-500 drop-shadow-[0_0_8px_rgba(244,63,94,0.9)]">
+                <title>Cardiovascular Aerobic Zone</title>
+              </circle>
+            </g>
+          )}
+
           {/* Biceps & Forearms (Front) */}
           <path
             d="M43 74 C41 84 41 94 44 104 C47 104 49 96 48 84 C48 78 45 74 43 74 Z"

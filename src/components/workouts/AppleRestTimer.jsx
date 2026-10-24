@@ -49,6 +49,8 @@ export const AppleRestTimer = ({
     onDismissRef.current = onDismiss;
   });
 
+  const targetEndTimeRef = useRef(null);
+
   // Sync if durationSec prop changes initially
   useEffect(() => {
     const validSec = Math.max(5, durationSec || 90);
@@ -56,49 +58,84 @@ export const AppleRestTimer = ({
     setTimeLeft(validSec);
     hasFinishedRef.current = false;
     if (autoStart) {
+      targetEndTimeRef.current = Date.now() + validSec * 1000;
       setIsRunning(true);
     }
   }, [durationSec, autoStart]);
 
-  // Main high-precision countdown timer
+  // Request WakeLock so iPhone screen stays on during rest
+  useEffect(() => {
+    let wakeLock = null;
+    if (isRunning && 'wakeLock' in navigator) {
+      navigator.wakeLock.request('screen').then((lock) => {
+        wakeLock = lock;
+      }).catch(() => {});
+    }
+    return () => {
+      if (wakeLock) {
+        wakeLock.release().catch(() => {});
+      }
+    };
+  }, [isRunning]);
+
+  // Timestamp-based countdown that survives iOS screen locks
   useEffect(() => {
     if (!isRunning) return;
 
-    if (timeLeft <= 0) {
-      if (!hasFinishedRef.current) {
-        hasFinishedRef.current = true;
-        setIsRunning(false);
-        if (soundEnabled) {
-          playRestCompleteChime();
+    if (!targetEndTimeRef.current) {
+      targetEndTimeRef.current = Date.now() + timeLeft * 1000;
+    }
+
+    const checkTime = () => {
+      const remainingMs = targetEndTimeRef.current - Date.now();
+      const remainingSec = Math.max(0, Math.ceil(remainingMs / 1000));
+      setTimeLeft(remainingSec);
+
+      if (remainingSec <= 0) {
+        if (!hasFinishedRef.current) {
+          hasFinishedRef.current = true;
+          setIsRunning(false);
+          targetEndTimeRef.current = null;
+          if (soundEnabled) {
+            playRestCompleteChime();
+          }
+          triggerVibrate([200, 100, 200, 100, 300]);
+          if (onFinishRef.current) onFinishRef.current();
         }
-        triggerVibrate([200, 100, 200, 100, 300]);
-        if (onFinishRef.current) onFinishRef.current();
+      } else if (remainingSec <= 3 && soundEnabled) {
+        playCountdownTick();
       }
-      return;
-    }
+    };
 
-    // Audible countdown ticks on final 3 seconds
-    if (timeLeft <= 3 && soundEnabled) {
-      playCountdownTick();
-    }
+    // Immediate check
+    checkTime();
 
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    const timer = setInterval(checkTime, 500);
 
-    return () => clearInterval(timer);
-  }, [isRunning, timeLeft, soundEnabled]);
+    // Sync on iOS unlock or tab return
+    const handleVisibilitySync = () => {
+      if (document.visibilityState === 'visible') {
+        checkTime();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilitySync);
+    window.addEventListener('pageshow', handleVisibilitySync);
+    window.addEventListener('focus', handleVisibilitySync);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', handleVisibilitySync);
+      window.removeEventListener('pageshow', handleVisibilitySync);
+      window.removeEventListener('focus', handleVisibilitySync);
+    };
+  }, [isRunning, soundEnabled]);
 
   // Actions
   const handleToggleStartPause = useCallback(() => {
     if (timeLeft <= 0) {
       // If already 0, reset and start
+      targetEndTimeRef.current = Date.now() + totalDuration * 1000;
       setTimeLeft(totalDuration);
       hasFinishedRef.current = false;
       setIsRunning(true);
@@ -108,12 +145,12 @@ export const AppleRestTimer = ({
 
     setIsRunning((prev) => {
       const nextState = !prev;
-      if (soundEnabled) {
-        if (nextState) {
-          playTimerStartSound();
-        } else {
-          playTimerPauseSound();
-        }
+      if (nextState) {
+        targetEndTimeRef.current = Date.now() + timeLeft * 1000;
+        if (soundEnabled) playTimerStartSound();
+      } else {
+        targetEndTimeRef.current = null;
+        if (soundEnabled) playTimerPauseSound();
       }
       return nextState;
     });
@@ -126,6 +163,9 @@ export const AppleRestTimer = ({
       if (updated > totalDuration) {
         setTotalDuration(updated);
       }
+      if (isRunning) {
+        targetEndTimeRef.current = Date.now() + updated * 1000;
+      }
       return updated;
     });
     hasFinishedRef.current = false;
@@ -134,6 +174,7 @@ export const AppleRestTimer = ({
   const handleReset = () => {
     if (soundEnabled) playTimerResetSound();
     setIsRunning(false);
+    targetEndTimeRef.current = null;
     setTimeLeft(totalDuration);
     hasFinishedRef.current = false;
   };
@@ -142,6 +183,9 @@ export const AppleRestTimer = ({
     if (soundEnabled) playButtonTapSound();
     setTotalDuration(presetSec);
     setTimeLeft(presetSec);
+    if (isRunning) {
+      targetEndTimeRef.current = Date.now() + presetSec * 1000;
+    }
     hasFinishedRef.current = false;
   };
 

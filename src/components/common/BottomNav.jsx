@@ -38,7 +38,7 @@ export const BottomNav = () => {
   return (
     <nav
       aria-label="Bottom Navigation"
-      className="fixed bottom-0 left-0 right-0 z-40 bg-dark-900/90 backdrop-blur-xl border-t border-white/[0.08] shadow-2xl safe-bottom transition-all"
+      className="fixed bottom-0 left-0 right-0 z-40 bg-dark-900/95 backdrop-blur-2xl border-t border-white/[0.08] shadow-2xl pb-[env(safe-area-inset-bottom,0px)] transition-all"
     >
       <div className="max-w-md md:max-w-2xl lg:max-w-4xl mx-auto px-4 h-16 flex items-center justify-around">
         {navItems.map((item) => {

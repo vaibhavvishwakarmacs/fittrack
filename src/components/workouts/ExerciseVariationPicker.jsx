@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { EXERCISE_VARIATIONS_BY_MUSCLE, MUSCLE_GROUPS } from '../../data/muscleData';
-import { Dumbbell, Plus, Sparkles, Image, Check, ChevronRight } from 'lucide-react';
+import { Dumbbell, Plus, Sparkles, Image, Check, ChevronRight, Trash2 } from 'lucide-react';
 import { api } from '../../lib/api';
+import { exerciseService } from '../../services/exerciseService';
 
 export const ExerciseVariationPicker = ({
   isOpen,
@@ -21,13 +22,33 @@ export const ExerciseVariationPicker = ({
   const [newTips, setNewTips] = useState('');
   const [newImageUrl, setNewImageUrl] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [isSavingDb, setIsSavingDb] = useState(false);
 
-  // Local state for custom variations added this session
-  const [customVariations, setCustomVariations] = useState({});
+  // Database-backed custom variations
+  const [dbCustomVariations, setDbCustomVariations] = useState([]);
+
+  useEffect(() => {
+    if (initialMuscle) {
+      setSelectedMuscle(initialMuscle);
+    }
+  }, [initialMuscle]);
+
+  // Load custom variations from DB on modal open
+  useEffect(() => {
+    if (isOpen) {
+      exerciseService.getCustomExercises().then((res) => {
+        if (res.data) {
+          setDbCustomVariations(res.data);
+        }
+      });
+    }
+  }, [isOpen]);
 
   const defaultVariations = EXERCISE_VARIATIONS_BY_MUSCLE[selectedMuscle] || [];
-  const addedVariations = customVariations[selectedMuscle] || [];
-  const allVariations = [...defaultVariations, ...addedVariations];
+  const addedCustomForMuscle = dbCustomVariations.filter(
+    (item) => (item.muscle || '').toLowerCase() === selectedMuscle.toLowerCase()
+  );
+  const allVariations = [...defaultVariations, ...addedCustomForMuscle];
 
   const handleImageFileChange = async (e) => {
     const file = e.target.files?.[0];
@@ -35,10 +56,9 @@ export const ExerciseVariationPicker = ({
 
     setIsUploading(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const res = await api.post('/upload', formData);
-      if (res.url) {
+      // Use api.upload which handles multipart formData correctly
+      const res = await api.upload(file);
+      if (res && res.url) {
         setNewImageUrl(res.url);
       }
     } catch (err) {
@@ -48,11 +68,13 @@ export const ExerciseVariationPicker = ({
     }
   };
 
-  const handleSaveCustomVariation = () => {
+  const handleSaveCustomVariation = async () => {
     if (!newName.trim()) return;
 
-    const customObj = {
+    setIsSavingDb(true);
+    const customPayload = {
       name: newName.trim(),
+      muscle: selectedMuscle,
       target: newTarget.trim() || `${selectedMuscle.toUpperCase()} Emphasis`,
       tips: newTips.trim() ? [newTips.trim()] : ['Perform with strict form and controlled tempo.'],
       image: newImageUrl || null,
@@ -60,18 +82,29 @@ export const ExerciseVariationPicker = ({
       isCustom: true,
     };
 
-    setCustomVariations((prev) => ({
-      ...prev,
-      [selectedMuscle]: [...(prev[selectedMuscle] || []), customObj],
-    }));
+    try {
+      const res = await exerciseService.createCustomExercise(customPayload);
+      const saved = res.data || customPayload;
 
-    onSelectVariation(customObj, selectedMuscle);
-    setIsCreatingNew(false);
-    setNewName('');
-    setNewTarget('');
-    setNewTips('');
-    setNewImageUrl('');
-    onClose();
+      setDbCustomVariations((prev) => [saved, ...prev]);
+      onSelectVariation(saved, selectedMuscle);
+      setIsCreatingNew(false);
+      setNewName('');
+      setNewTarget('');
+      setNewTips('');
+      setNewImageUrl('');
+      onClose();
+    } catch (err) {
+      console.error('Failed to save custom variation:', err);
+    } finally {
+      setIsSavingDb(false);
+    }
+  };
+
+  const handleDeleteCustom = async (e, id) => {
+    e.stopPropagation();
+    await exerciseService.deleteCustomExercise(id);
+    setDbCustomVariations((prev) => prev.filter((item) => item.id !== id));
   };
 
   return (
@@ -79,14 +112,14 @@ export const ExerciseVariationPicker = ({
       isOpen={isOpen}
       onClose={onClose}
       title="Select Movement Variation"
-      description="Pick an exercise variation or add a custom movement with demonstration image"
+      description="Pick an exercise variation or add a custom movement saved to your database"
       maxWidth="xl"
     >
       <div className="space-y-4 text-left">
         {/* Muscle selector pills */}
         <div>
-          <label className="block text-xs font-medium text-slate-300 uppercase tracking-wider mb-2">
-            Muscle Group
+          <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+            Muscle / Target Group
           </label>
           <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
             {MUSCLE_GROUPS.map((m) => (
@@ -150,7 +183,7 @@ export const ExerciseVariationPicker = ({
             {/* Optional Image */}
             <div>
               <label className="block text-xs font-medium text-slate-300 mb-1.5 uppercase tracking-wider">
-                Exercise Photo or Image Demonstration (Optional)
+                Exercise Photo (Uploaded to Cloudinary)
               </label>
               <div className="flex items-center gap-3">
                 <input
@@ -159,7 +192,7 @@ export const ExerciseVariationPicker = ({
                   onChange={handleImageFileChange}
                   className="text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-dark-800 file:text-lime hover:file:bg-dark-750 cursor-pointer"
                 />
-                {isUploading && <span className="text-xs text-lime animate-pulse">Uploading...</span>}
+                {isUploading && <span className="text-xs text-lime animate-pulse font-semibold">Uploading to Cloudinary...</span>}
               </div>
               {newImageUrl && (
                 <div className="mt-2">
@@ -181,10 +214,10 @@ export const ExerciseVariationPicker = ({
                 variant="primary"
                 size="sm"
                 onClick={handleSaveCustomVariation}
-                disabled={!newName.trim()}
+                disabled={!newName.trim() || isSavingDb || isUploading}
                 leftIcon={<Check className="w-3.5 h-3.5" />}
               >
-                Save &amp; Select
+                {isSavingDb ? 'Saving to Database...' : 'Save to DB & Select'}
               </Button>
             </div>
           </div>
@@ -200,7 +233,7 @@ export const ExerciseVariationPicker = ({
                 className="text-xs font-bold text-lime hover:underline flex items-center gap-1"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>+ Custom Variation</span>
+                <span>+ Custom Variation (Saves to DB)</span>
               </button>
             </div>
 
@@ -208,7 +241,7 @@ export const ExerciseVariationPicker = ({
             <div className="space-y-2 max-h-[380px] overflow-y-auto no-scrollbar pr-1">
               {allVariations.map((v, idx) => (
                 <div
-                  key={idx}
+                  key={v.id || idx}
                   onClick={() => {
                     onSelectVariation(v, selectedMuscle);
                     onClose();
@@ -234,7 +267,7 @@ export const ExerciseVariationPicker = ({
                         </h4>
                         {v.isCustom && (
                           <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                            Custom
+                            Saved in DB
                           </span>
                         )}
                       </div>
@@ -247,7 +280,19 @@ export const ExerciseVariationPicker = ({
                     </div>
                   </div>
 
-                  <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-lime shrink-0" />
+                  <div className="flex items-center gap-2">
+                    {v.isCustom && v.id && (
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteCustom(e, v.id)}
+                        className="p-1.5 text-slate-500 hover:text-rose-400 transition-colors"
+                        title="Delete from DB"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-lime shrink-0" />
+                  </div>
                 </div>
               ))}
             </div>

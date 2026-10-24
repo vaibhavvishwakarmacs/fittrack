@@ -11,6 +11,7 @@ import nutritionRoutes from './routes/nutritionRoutes.js';
 import activityRoutes from './routes/activityRoutes.js';
 import weightRoutes from './routes/weightRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
+import exerciseRoutes from './routes/exerciseRoutes.js';
 
 dotenv.config();
 
@@ -81,6 +82,7 @@ const registerRoutes = (prefix = '') => {
   app.use(`${prefix}/activity`, activityRoutes);
   app.use(`${prefix}/weight`, weightRoutes);
   app.use(`${prefix}/upload`, uploadRoutes);
+  app.use(`${prefix}/exercises`, exerciseRoutes);
 };
 
 // Mount for standard /api routes and root fallback
@@ -92,13 +94,13 @@ if (!process.env.VERCEL) {
   const distPath = path.resolve('dist');
   app.use(express.static(distPath));
 
-  app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
-      return next();
+  app.use((req, res, next) => {
+    if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.startsWith('/uploads')) {
+      return res.sendFile(path.join(distPath, 'index.html'), (err) => {
+        if (err) next();
+      });
     }
-    res.sendFile(path.join(distPath, 'index.html'), (err) => {
-      if (err) next();
-    });
+    next();
   });
 }
 

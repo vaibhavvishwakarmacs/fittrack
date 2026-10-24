@@ -10,6 +10,7 @@ export const MUSCLE_GROUPS = [
   { id: 'hamstrings', label: 'Hamstrings & Glutes', anatomy: 'Biceps Femoris & Gluteus Maximus', icon: 'Activity' },
   { id: 'calves', label: 'Calves', anatomy: 'Gastrocnemius & Soleus', icon: 'Layers' },
   { id: 'core', label: 'Core / Abs', anatomy: 'Rectus Abdominis & Obliques', icon: 'Target' },
+  { id: 'cardio', label: 'Cardio & Conditioning', anatomy: 'Aerobic & Heart Stamina', icon: 'HeartPulse' },
 ];
 
 export const WORKOUT_ROUTINES = [
@@ -29,7 +30,7 @@ export const WORKOUT_ROUTINES = [
   },
   {
     id: 'legs_calves',
-    label: 'Leg Day (Quads, Hamstrings & Glutes)',
+    label: 'Leg Day (Quads, Hamstrings & Calves)',
     defaultMuscles: ['quads', 'hamstrings', 'calves'],
     category: 'strength',
     desc: 'Heavy compound lower body session focusing on squat patterns and hip hinge mechanics.',
@@ -40,6 +41,13 @@ export const WORKOUT_ROUTINES = [
     defaultMuscles: ['shoulders', 'biceps', 'triceps'],
     category: 'hypertrophy',
     desc: 'V-taper aesthetic builder emphasizing lateral deltoids, long head triceps, and peaked biceps.',
+  },
+  {
+    id: 'cardio_core',
+    label: 'Cardio & Core Burn',
+    defaultMuscles: ['cardio', 'core'],
+    category: 'endurance',
+    desc: 'High-intensity conditioning, steady-state fat loss, and core stability.',
   },
   {
     id: 'push_day',
@@ -65,7 +73,7 @@ export const WORKOUT_ROUTINES = [
   {
     id: 'custom',
     label: 'Custom Workout Routine',
-    defaultMuscles: ['chest'],
+    defaultMuscles: ['chest', 'triceps', 'shoulders'],
     category: 'other',
     desc: 'Configure your own muscle combinations and exercises on the fly.',
   },
@@ -235,6 +243,15 @@ export const EXERCISE_VARIATIONS_BY_MUSCLE = {
       ],
       defaultRestSec: 60,
     },
+    {
+      name: 'Preacher Bench Curl',
+      target: 'Short (Inner) Biceps Head Isolation',
+      tips: [
+        'Keep armpits snug against the top edge of the pad.',
+        'Control the descent to protect the bicep tendon at bottom lockout.',
+      ],
+      defaultRestSec: 60,
+    },
   ],
   shoulders: [
     {
@@ -242,7 +259,7 @@ export const EXERCISE_VARIATIONS_BY_MUSCLE = {
       target: 'Lateral Deltoids (Shoulder Width)',
       tips: [
         'Slight forward torso lean (10°) and raise arms in the scapular plane (30° forward).',
-        'Lead with elbows and pour a glass of water at the top.',
+        'Lead with elbows and avoid shrugging traps.',
       ],
       defaultRestSec: 60,
       image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=600&auto=format&fit=crop&q=80',
@@ -264,6 +281,14 @@ export const EXERCISE_VARIATIONS_BY_MUSCLE = {
         'Externally rotate shoulders at the end so thumbs point backward.',
       ],
       defaultRestSec: 60,
+    },
+    {
+      name: 'Arnold Dumbbell Press',
+      target: 'Anterior and Medial Deltoid Rotation',
+      tips: [
+        'Begin palms facing chest, rotate outward as you press smoothly overhead.',
+      ],
+      defaultRestSec: 75,
     },
   ],
   quads: [
@@ -296,6 +321,14 @@ export const EXERCISE_VARIATIONS_BY_MUSCLE = {
       ],
       defaultRestSec: 60,
     },
+    {
+      name: 'Bulgarian Split Squat',
+      target: 'Unilateral Quad & Glute Hypertrophy',
+      tips: [
+        'Place rear foot elevated on bench. Lower hips straight down until back knee hovers.',
+      ],
+      defaultRestSec: 75,
+    },
   ],
   hamstrings: [
     {
@@ -316,6 +349,15 @@ export const EXERCISE_VARIATIONS_BY_MUSCLE = {
       ],
       defaultRestSec: 60,
     },
+    {
+      name: 'Barbell Hip Thrust',
+      target: 'Gluteus Maximus & Hamstrings Lockout',
+      tips: [
+        'Position shoulder blades across the bench edge.',
+        'Tuck chin and squeeze glutes hard at the top parallel line.',
+      ],
+      defaultRestSec: 90,
+    },
   ],
   calves: [
     {
@@ -324,6 +366,22 @@ export const EXERCISE_VARIATIONS_BY_MUSCLE = {
       tips: [
         'Get a full 2-second deep stretch at the bottom before driving up onto balls of feet.',
         'Hold contraction at the peak for 1 second.',
+      ],
+      defaultRestSec: 45,
+    },
+    {
+      name: 'Seated Calf Raise',
+      target: 'Soleus Deep Muscle (Bent Knee)',
+      tips: [
+        'Keep pad resting above knees, drop heels down slowly and explode upwards.',
+      ],
+      defaultRestSec: 45,
+    },
+    {
+      name: 'Leg Press Calf Press',
+      target: 'Calf Stretch & High Rep Volume',
+      tips: [
+        'Balls of feet on edge of plate, keep knees slightly unlocked for safety.',
       ],
       defaultRestSec: 45,
     },
@@ -346,6 +404,73 @@ export const EXERCISE_VARIATIONS_BY_MUSCLE = {
         'Engage hips and pivot on back foot.',
       ],
       defaultRestSec: 45,
+    },
+    {
+      name: 'Cable Rope Kneeling Crunch',
+      target: 'Upper & Middle Abdominal Compression',
+      tips: [
+        'Anchor rope at forehead level, curl thoracic spine down towards knees.',
+      ],
+      defaultRestSec: 45,
+    },
+  ],
+  cardio: [
+    {
+      name: 'Incline Treadmill Power Walk',
+      target: 'Zone 2 Aerobic Fat Burn & Low-Impact Conditioning',
+      tips: [
+        'Set incline between 10% - 15% and speed around 4.5 - 5.5 km/h.',
+        'Walk upright without gripping handrails to maximize core and posterior chain engagement.',
+        'Breathe rhythmically and maintain conversational heart rate.',
+      ],
+      defaultRestSec: 45,
+      image: 'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?w=600&auto=format&fit=crop&q=80',
+    },
+    {
+      name: 'Stationary / Spin Bike Intervals',
+      target: 'High-Intensity Quads, Glutes & Anaerobic Capacity',
+      tips: [
+        'Alternate 30 seconds all-out sprint with 60 seconds moderate recovery pace.',
+        'Keep cadence above 85 RPM during working intervals.',
+      ],
+      defaultRestSec: 60,
+      image: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=600&auto=format&fit=crop&q=80',
+    },
+    {
+      name: 'Stairmaster Cardio Climber',
+      target: 'Glutes, Calves & Cardiovascular Stamina',
+      tips: [
+        'Step with full foot contact to activate glutes and hamstrings.',
+        'Maintain a tall posture without leaning excessively on upper console.',
+      ],
+      defaultRestSec: 45,
+    },
+    {
+      name: 'Rowing Machine 500m Intervals',
+      target: 'Full Kinetic Chain (Legs, Core & Upper Back)',
+      tips: [
+        'Sequence: Drive through legs first, lean back 10°, then pull handle to sternum.',
+        'Recovery: Arms forward, hinge hips, then bend knees back to the catch.',
+      ],
+      defaultRestSec: 60,
+    },
+    {
+      name: 'High-Speed Jump Rope',
+      target: 'Calf Elasticity, Footwork & Anaerobic Stamina',
+      tips: [
+        'Jump just 1-2 inches off the ground on the balls of your feet.',
+        'Rotate the rope using wrists, keeping elbows pinned near your hips.',
+      ],
+      defaultRestSec: 45,
+    },
+    {
+      name: 'HIIT Sprint Circuit',
+      target: 'VMax Oxygen Uptake & Fast-Twitch Muscle Burn',
+      tips: [
+        'Push to 90%+ maximum effort during work intervals.',
+        'Focus on rapid knee drive and aggressive arm swings.',
+      ],
+      defaultRestSec: 60,
     },
   ],
 };

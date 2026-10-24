@@ -29,7 +29,7 @@ import {
 
 export const DashboardPage = () => {
   const { user, profile } = useAuth();
-  const { startSession } = useWorkoutSession();
+  const { startSession, hasActiveSavedSession } = useWorkoutSession();
   const navigate = useNavigate();
 
   const today = formatDateToISO();
@@ -109,32 +109,44 @@ export const DashboardPage = () => {
           </p>
         </div>
 
-        {/* Quick Launch Buttons */}
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+        {/* Quick Launch Buttons - Clean Mobile-First Layout */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
           <Button
-            size="sm"
+            size="md"
             variant="primary"
             onClick={() => startSession(loadDashboardData)}
-            leftIcon={<Dumbbell className="w-3.5 h-3.5" />}
+            leftIcon={<Dumbbell className="w-4 h-4 shrink-0" />}
+            className="w-full sm:w-auto font-extrabold shadow-lime-sm justify-center py-2.5 px-4"
           >
-            Start Workout Session
+            {hasActiveSavedSession ? (
+              <span className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-dark-950 animate-ping inline-block" />
+                <span>Resume Live Workout</span>
+              </span>
+            ) : (
+              'Start Workout Session'
+            )}
           </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => setIsFoodModalOpen(true)}
-            leftIcon={<Plus className="w-3.5 h-3.5 text-amber-400" />}
-          >
-            Log Food
-          </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => setIsWeightModalOpen(true)}
-            leftIcon={<Scale className="w-3.5 h-3.5 text-sky-400" />}
-          >
-            Weigh-in
-          </Button>
+          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setIsFoodModalOpen(true)}
+              leftIcon={<Plus className="w-3.5 h-3.5 text-amber-400" />}
+              className="justify-center py-2"
+            >
+              Log Food
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setIsWeightModalOpen(true)}
+              leftIcon={<Scale className="w-3.5 h-3.5 text-sky-400" />}
+              className="justify-center py-2"
+            >
+              Weigh-in
+            </Button>
+          </div>
         </div>
       </div>
 

@@ -17,6 +17,7 @@ import { NutritionPage } from '../pages/app/NutritionPage';
 import { ActivityPage } from '../pages/app/ActivityPage';
 import { ProfilePage } from '../pages/app/ProfilePage';
 import { SettingsPage } from '../pages/app/SettingsPage';
+import { WorkoutSessionPage } from '../pages/app/WorkoutSessionPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 
 export const AppRoutes = () => {
@@ -47,6 +48,7 @@ export const AppRoutes = () => {
           <Route path="activity" element={<ActivityPage />} />
           <Route path="profile" element={<ProfilePage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="session" element={<WorkoutSessionPage />} />
         </Route>
       </Route>
 

@@ -10,7 +10,7 @@ import { Dumbbell, Plus, Clock, Trophy } from 'lucide-react';
 
 export const WorkoutsPage = () => {
   const { user, profile } = useAuth();
-  const { startSession } = useWorkoutSession();
+  const { startSession, hasActiveSavedSession } = useWorkoutSession();
   const [workouts, setWorkouts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState('all');
@@ -78,9 +78,10 @@ export const WorkoutsPage = () => {
         <Button
           variant="primary"
           onClick={() => startSession(loadWorkouts)}
-          leftIcon={<Plus className="w-4 h-4" />}
+          leftIcon={<Dumbbell className="w-4 h-4" />}
+          className="font-bold shadow-lime-sm"
         >
-          Start New Workout
+          {hasActiveSavedSession ? 'Resume Workout Session' : 'Start Workout Session'}
         </Button>
       </div>
 
