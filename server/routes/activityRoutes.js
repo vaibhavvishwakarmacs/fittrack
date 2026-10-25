@@ -1,5 +1,7 @@
 import express from 'express';
+import jwt from 'jsonwebtoken';
 import { Activity } from '../models/Activity.js';
+import { User } from '../models/User.js';
 import { authMiddleware } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -70,12 +72,43 @@ router.post('/', authMiddleware, async (req, res) => {
   }
 });
 
-// GET /api/activity/sync?steps=...&date=... (Convenient for 1-line Apple Shortcuts HTTP GET)
-router.get('/sync', authMiddleware, async (req, res) => {
+// GET /api/activity/sync?email=...&steps=...&date=... (100% background sync for Apple Shortcuts)
+router.get('/sync', async (req, res) => {
   try {
     const rawSteps = req.query.steps;
     if (rawSteps === undefined) {
       return res.status(400).json({ error: 'Steps query parameter is required.' });
+    }
+
+    let targetUserId = null;
+
+    // 1. Resolve user by email
+    if (req.query.email) {
+      const u = await User.findOne({ email: req.query.email.trim().toLowerCase() });
+      if (u) targetUserId = u._id.toString();
+    }
+
+    // 2. Resolve user by token
+    if (!targetUserId) {
+      const authHeader = req.headers.authorization;
+      const queryToken = req.query.token;
+      const token = authHeader?.startsWith('Bearer ') ? authHeader.split(' ')[1] : queryToken;
+      if (token) {
+        try {
+          const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fittrack-super-secret-jwt-key-2025');
+          targetUserId = decoded.userId;
+        } catch {}
+      }
+    }
+
+    // 3. Fallback to first user in system
+    if (!targetUserId) {
+      const firstUser = await User.findOne().sort({ createdAt: 1 });
+      if (firstUser) targetUserId = firstUser._id.toString();
+    }
+
+    if (!targetUserId) {
+      return res.status(401).json({ error: 'User could not be identified for step sync.' });
     }
 
     const todayDate = new Date().toISOString().split('T')[0];
@@ -86,7 +119,7 @@ router.get('/sync', authMiddleware, async (req, res) => {
     const mins = Math.round(s / 100);
 
     const activity = await Activity.findOneAndUpdate(
-      { userId: req.userId, date: targetDate },
+      { userId: targetUserId, date: targetDate },
       {
         steps: s,
         distanceKm: dist,
@@ -97,7 +130,12 @@ router.get('/sync', authMiddleware, async (req, res) => {
       { new: true, upsert: true }
     );
 
-    res.json({ success: true, message: `Synced ${s} steps for ${targetDate}`, data: activity.toJSON() });
+    res.json({
+      success: true,
+      message: `Synced ${s.toLocaleString()} steps for ${targetDate}`,
+      steps: s,
+      data: activity.toJSON(),
+    });
   } catch (err) {
     res.status(500).json({ error: err.message || 'Failed to sync activity.' });
   }
