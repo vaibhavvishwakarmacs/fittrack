@@ -15,6 +15,7 @@ import {
   Dumbbell,
   Flame,
   Plus,
+  Footprints,
 } from 'lucide-react';
 
 export const CalendarPage = () => {
@@ -88,22 +89,17 @@ export const CalendarPage = () => {
   const monthName = currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   const todayIso = formatDateToISO();
 
-  // Macros for selected date
+  // Calories for selected date
   const dayCalories = nutritionLogs.reduce((acc, curr) => acc + (curr.calories || 0), 0);
 
   return (
-    <div className="space-y-6 text-left animate-in fade-in pb-12">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
-            <CalendarIcon className="w-6 h-6 text-lime" />
-            <span>Fitness Calendar</span>
-          </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            View consistency, past workouts, and daily nutrition history
-          </p>
-        </div>
+    <div className="space-y-4 text-left animate-in fade-in pb-12">
+      {/* Clean Minimal Header */}
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
+          <CalendarIcon className="w-5 h-5 text-lime" />
+          <span>Calendar</span>
+        </h1>
 
         <Button
           size="sm"
@@ -117,45 +113,54 @@ export const CalendarPage = () => {
             })
           }
           leftIcon={<Plus className="w-3.5 h-3.5" />}
+          className="font-bold shadow-lime-sm text-xs"
         >
           Start Session
         </Button>
       </div>
 
-      {/* Calendar Card */}
-      <div className="glass-card rounded-3xl p-4 sm:p-6 border border-white/10 shadow-xl">
-        {/* Month selector */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-bold text-white tracking-tight">{monthName}</h2>
+      {/* Compact Calendar Card */}
+      <div className="rounded-2xl p-3 sm:p-5 bg-white/[0.03] border border-white/10 shadow-lg">
+        {/* Month selector header */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm sm:text-base font-bold text-white tracking-tight">{monthName}</h2>
+            {/* Minimal inline indicator */}
+            <span className="flex items-center gap-1 text-[10px] text-slate-400 font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-lime inline-block" />
+              <span>Workout</span>
+            </span>
+          </div>
+
           <div className="flex items-center gap-1">
             <button
               onClick={prevMonth}
-              className="p-1.5 rounded-lg bg-dark-850 hover:bg-dark-800 text-slate-300 hover:text-white border border-white/5 transition-colors"
+              className="p-1 rounded-lg bg-dark-850 hover:bg-dark-800 text-slate-300 hover:text-white border border-white/5 transition-colors"
               aria-label="Previous month"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => {
                 setCurrentMonth(new Date());
                 setSelectedDate(todayIso);
               }}
-              className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-dark-850 hover:bg-dark-800 text-slate-300 hover:text-white border border-white/5 transition-colors"
+              className="px-2 py-0.5 text-[11px] font-bold rounded-lg bg-dark-850 hover:bg-dark-800 text-slate-300 hover:text-white border border-white/5 transition-colors"
             >
               Today
             </button>
             <button
               onClick={nextMonth}
-              className="p-1.5 rounded-lg bg-dark-850 hover:bg-dark-800 text-slate-300 hover:text-white border border-white/5 transition-colors"
+              className="p-1 rounded-lg bg-dark-850 hover:bg-dark-800 text-slate-300 hover:text-white border border-white/5 transition-colors"
               aria-label="Next month"
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
 
         {/* Days of week header */}
-        <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+        <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
           <span>Sun</span>
           <span>Mon</span>
           <span>Tue</span>
@@ -165,11 +170,11 @@ export const CalendarPage = () => {
           <span>Sat</span>
         </div>
 
-        {/* Calendar Grid */}
+        {/* Compact Calendar Grid - Reduced mobile height */}
         <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
           {calendarDays.map((dateStr, idx) => {
             if (!dateStr) {
-              return <div key={`empty-${idx}`} className="h-11 sm:h-14 rounded-xl opacity-0" />;
+              return <div key={`empty-${idx}`} className="h-9 sm:h-11 rounded-xl opacity-0" />;
             }
 
             const dayNum = parseInt(dateStr.split('-')[2], 10);
@@ -183,18 +188,18 @@ export const CalendarPage = () => {
               <button
                 key={dateStr}
                 onClick={() => setSelectedDate(dateStr)}
-                className={`h-11 sm:h-14 rounded-xl sm:rounded-2xl flex flex-col items-center justify-between p-1 sm:p-1.5 transition-all focus:outline-none relative ${
+                className={`h-9 sm:h-11 rounded-xl flex flex-col items-center justify-between p-1 transition-all focus:outline-none relative select-none ${
                   isSelected
                     ? 'bg-lime text-dark-950 font-black shadow-lime-sm scale-105 z-10'
                     : isToday
                     ? 'bg-dark-850 border border-lime/50 text-white font-bold'
-                    : 'bg-dark-950/60 hover:bg-dark-850 text-slate-300 border border-white/5'
+                    : 'bg-dark-950/60 hover:bg-dark-800 text-slate-300 border border-white/5'
                 }`}
               >
-                <span className="text-xs sm:text-sm">{dayNum}</span>
+                <span className="text-xs sm:text-sm font-semibold">{dayNum}</span>
 
                 {/* Status dot */}
-                <div className="flex gap-1 items-center justify-center h-2">
+                <div className="flex gap-1 items-center justify-center h-1.5">
                   {hasWorkout && (
                     <span
                       className={`w-1.5 h-1.5 rounded-full ${
@@ -208,38 +213,33 @@ export const CalendarPage = () => {
             );
           })}
         </div>
-
-        {/* Legend */}
-        <div className="flex items-center gap-4 mt-4 pt-3 border-t border-white/[0.06] text-[11px] text-slate-400">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-lime" />
-            <span>Workout Session Logged</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full border border-lime" />
-            <span>Current Day</span>
-          </div>
-        </div>
       </div>
 
       {/* Selected Day Details Section */}
-      <div className="space-y-4">
+      <div className="space-y-3">
+        {/* Day Header & Action */}
         <div className="flex items-center justify-between">
-          <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
-            Schedule for {formatDisplayDate(selectedDate)}
+          <h2 className="text-sm sm:text-base font-bold text-white tracking-tight flex items-center gap-1.5">
+            <span>{formatDisplayDate(selectedDate)}</span>
+            {selectedDate === todayIso && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-lime/20 text-lime font-bold">
+                Today
+              </span>
+            )}
           </h2>
           <Button
             size="sm"
             variant="secondary"
             onClick={() => setIsFoodModalOpen(true)}
             leftIcon={<Plus className="w-3.5 h-3.5 text-amber-400" />}
+            className="text-xs"
           >
             Log Food
           </Button>
         </div>
 
         {/* Day's Quick Summary Strip */}
-        <div className="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-dark-900 border border-white/10 text-center text-xs">
+        <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-center text-xs">
           <div>
             <p className="text-[10px] text-slate-400 uppercase font-semibold">Workouts</p>
             <p className="font-extrabold text-lime mt-0.5">{workouts.length}</p>
@@ -258,7 +258,7 @@ export const CalendarPage = () => {
 
         {/* Workouts list for selected day */}
         {workouts.length > 0 ? (
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {workouts.map((w) => (
               <WorkoutCard
                 key={w.id}
@@ -273,32 +273,51 @@ export const CalendarPage = () => {
             ))}
           </div>
         ) : (
-          <div className="p-6 rounded-2xl bg-dark-900/50 border border-dashed border-white/10 text-center">
-            <Dumbbell className="w-6 h-6 text-slate-500 mx-auto mb-2" />
-            <p className="text-xs text-slate-400">No workout session recorded on this day.</p>
+          /* Clean 1-line Rest Day Pill instead of giant empty box */
+          <div className="flex items-center justify-between p-2.5 px-3 rounded-xl bg-white/[0.02] border border-white/5 text-xs text-slate-400">
+            <div className="flex items-center gap-2">
+              <Dumbbell className="w-3.5 h-3.5 text-slate-500" />
+              <span>Rest Day • No workouts logged</span>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                startSession(() => {
+                  loadDayData(selectedDate);
+                  if (user) {
+                    workoutService.getWorkouts(user.id).then(({ data }) => setAllWorkouts(data || []));
+                  }
+                })
+              }
+              className="text-[11px] font-bold text-lime hover:underline"
+            >
+              + Start
+            </button>
           </div>
         )}
 
-        {/* Food logged for selected day */}
+        {/* Meals logged for selected day */}
         {nutritionLogs.length > 0 && (
-          <div className="p-4 rounded-2xl bg-dark-900 border border-white/10 space-y-2">
-            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+          <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 space-y-2">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
               <Flame className="w-3.5 h-3.5 text-amber-400" />
-              <span>Meals Recorded</span>
+              <span>Meals Recorded ({nutritionLogs.length})</span>
             </h3>
             <div className="divide-y divide-white/[0.04]">
               {nutritionLogs.map((log) => (
                 <div key={log.id} className="py-2 flex items-center justify-between text-xs">
-                  <div>
-                    <span className="font-semibold text-white capitalize">{log.food_name}</span>
-                    <span className="text-[10px] text-slate-400 block capitalize">
+                  <div className="min-w-0 pr-2">
+                    <span className="font-semibold text-white capitalize truncate block">
+                      {log.food_name}
+                    </span>
+                    <span className="text-[10px] text-slate-400 block capitalize truncate">
                       {log.meal_type} • {log.serving_size}
                     </span>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right shrink-0">
                     <span className="font-bold text-amber-400">{log.calories} kcal</span>
-                    <span className="text-[10px] text-slate-400 block">
-                      {log.protein_g}g P • {log.carbs_g}g C • {log.fat_g}g F
+                    <span className="text-[10px] text-slate-400 block font-mono">
+                      {log.protein_g}P • {log.carbs_g}C • {log.fat_g}F
                     </span>
                   </div>
                 </div>

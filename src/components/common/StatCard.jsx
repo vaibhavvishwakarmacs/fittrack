@@ -23,17 +23,17 @@ export const StatCard = ({
     <div
       onClick={onClick}
       className={cn(
-        'rounded-2xl p-3.5 sm:p-4 bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.07] hover:border-white/15 transition-all duration-200 relative overflow-hidden text-left active:scale-[0.98] select-none',
+        'rounded-2xl p-3 sm:p-4 bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.07] hover:border-white/15 transition-all duration-200 relative overflow-hidden text-left active:scale-[0.98] select-none',
         onClick && 'cursor-pointer',
         className
       )}
     >
-      <div className="flex items-center justify-between gap-2 mb-1.5">
-        <span className="text-[11px] font-bold text-slate-400 tracking-wider uppercase truncate">
+      <div className="flex items-center justify-between gap-1.5 mb-1.5">
+        <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 tracking-wider uppercase leading-tight truncate">
           {title}
         </span>
         {icon && (
-          <div className={cn('w-7 h-7 rounded-xl flex items-center justify-center shrink-0', iconBg)}>
+          <div className={cn('w-6 h-6 sm:w-7 sm:h-7 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0', iconBg)}>
             {icon}
           </div>
         )}
