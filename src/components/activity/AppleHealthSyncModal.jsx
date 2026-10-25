@@ -14,6 +14,8 @@ import {
   Zap,
 } from 'lucide-react';
 
+import { getAuthToken } from '../../lib/api';
+
 export const AppleHealthSyncModal = ({
   isOpen,
   onClose,
@@ -23,13 +25,17 @@ export const AppleHealthSyncModal = ({
   const { success, error: toastError } = useToast();
   const [inputSteps, setInputSteps] = useState('');
   const [copied, setCopied] = useState(false);
+  const token = getAuthToken();
 
-  // Shortcut sync URL format
-  const syncBaseUrl = typeof window !== 'undefined' ? `${window.location.origin}/app/activity?sync_steps=` : '';
+  // Shortcut sync URL formats
+  const appSyncUrl = typeof window !== 'undefined' ? `${window.location.origin}/app/activity?sync_steps=` : '';
+  const backgroundApiUrl = typeof window !== 'undefined' && token
+    ? `${window.location.origin}/api/activity/sync?token=${token}&steps=`
+    : appSyncUrl;
 
-  const handleCopySyncUrl = () => {
-    if (!syncBaseUrl) return;
-    navigator.clipboard.writeText(syncBaseUrl);
+  const handleCopySyncUrl = (urlToCopy) => {
+    if (!urlToCopy) return;
+    navigator.clipboard.writeText(urlToCopy);
     setCopied(true);
     success('Sync URL copied! Paste into Apple Shortcuts app.');
     setTimeout(() => setCopied(false), 2500);
@@ -92,12 +98,12 @@ export const AppleHealthSyncModal = ({
             <input
               type="text"
               readOnly
-              value={`${syncBaseUrl}[Steps]`}
+              value={`${appSyncUrl}[Steps]`}
               className="flex-1 bg-dark-950 border border-white/10 rounded-xl px-3 py-2 text-xs text-lime font-mono truncate focus:outline-none"
             />
             <button
               type="button"
-              onClick={handleCopySyncUrl}
+              onClick={() => handleCopySyncUrl(`${appSyncUrl}[Steps]`)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-dark-850 hover:bg-dark-800 border border-white/10 text-xs font-bold text-white transition-all active:scale-95 shrink-0"
             >
               {copied ? <Check className="w-3.5 h-3.5 text-lime" /> : <Copy className="w-3.5 h-3.5" />}

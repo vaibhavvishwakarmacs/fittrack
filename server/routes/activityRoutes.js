@@ -70,4 +70,37 @@ router.post('/', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/activity/sync?steps=...&date=... (Convenient for 1-line Apple Shortcuts HTTP GET)
+router.get('/sync', authMiddleware, async (req, res) => {
+  try {
+    const rawSteps = req.query.steps;
+    if (rawSteps === undefined) {
+      return res.status(400).json({ error: 'Steps query parameter is required.' });
+    }
+
+    const todayDate = new Date().toISOString().split('T')[0];
+    const targetDate = req.query.date || todayDate;
+    const s = Number(rawSteps) || 0;
+    const dist = Math.round(s * 0.00075 * 100) / 100;
+    const cals = Math.round(s * 0.04);
+    const mins = Math.round(s / 100);
+
+    const activity = await Activity.findOneAndUpdate(
+      { userId: req.userId, date: targetDate },
+      {
+        steps: s,
+        distanceKm: dist,
+        activeCalories: cals,
+        durationMinutes: mins,
+        notes: 'Synced via Apple Health Shortcut',
+      },
+      { new: true, upsert: true }
+    );
+
+    res.json({ success: true, message: `Synced ${s} steps for ${targetDate}`, data: activity.toJSON() });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Failed to sync activity.' });
+  }
+});
+
 export default router;
