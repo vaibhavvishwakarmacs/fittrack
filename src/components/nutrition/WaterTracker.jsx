@@ -11,22 +11,40 @@ export const WaterTracker = ({
   onWaterUpdated,
 }) => {
   const { user } = useAuth();
-  const { success, error: toastError } = useToast();
+  const { error: toastError } = useToast();
   const [customMl, setCustomMl] = useState('');
+  const [optimisticWater, setOptimisticWater] = useState(null);
+  const [feedback, setFeedback] = useState(null);
 
-  const percentage = targetWaterMl > 0 ? Math.min(Math.round((currentWaterMl / targetWaterMl) * 100), 100) : 0;
+  // Sync optimistic water when prop updates from network
+  React.useEffect(() => {
+    setOptimisticWater(null);
+  }, [currentWaterMl]);
+
+  const effectiveWater = optimisticWater !== null ? optimisticWater : (Number(currentWaterMl) || 0);
+  const percentage = targetWaterMl > 0 ? Math.min(Math.round((effectiveWater / targetWaterMl) * 100), 100) : 0;
 
   const handleQuickAdd = async (amount) => {
     if (!user) return;
+    const previous = effectiveWater;
+    const nextVal = Math.max(0, previous + amount);
+
+    // 1. Instant 0ms optimistic UI update
+    setOptimisticWater(nextVal);
+    setFeedback(amount > 0 ? `+${amount}ml` : `${amount}ml`);
+    setTimeout(() => setFeedback(null), 1200);
+
+    // 2. Silent background sync
     try {
       const { error } = await nutritionService.logWater(user.id, date, amount);
       if (error) {
+        setOptimisticWater(previous);
         toastError(error.message || 'Failed to log water');
-      } else {
-        success(`+${amount} ml water logged!`);
+      } else if (onWaterUpdated) {
         onWaterUpdated();
       }
     } catch {
+      setOptimisticWater(previous);
       toastError('Could not record water intake.');
     }
   };
@@ -35,8 +53,9 @@ export const WaterTracker = ({
     e.preventDefault();
     const amount = Number(customMl);
     if (!amount || amount <= 0) return;
-    await handleQuickAdd(amount);
     setCustomMl('');
+    setShowCustom(false);
+    await handleQuickAdd(amount);
   };
 
   const [showCustom, setShowCustom] = useState(false);
@@ -45,17 +64,24 @@ export const WaterTracker = ({
     <div className="rounded-2xl p-3.5 sm:p-4 bg-white/[0.03] border border-white/[0.08] text-left">
       <div className="flex items-center justify-between mb-2.5">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-xl bg-sky-500/15 text-sky-400 flex items-center justify-center shrink-0">
+          <div className={`w-7 h-7 rounded-xl bg-sky-500/15 text-sky-400 flex items-center justify-center shrink-0 transition-transform ${feedback ? 'scale-110 text-cyan-300' : ''}`}>
             <Droplets className="w-3.5 h-3.5 fill-current stroke-none" />
           </div>
           <div>
-            <h3 className="text-xs sm:text-sm font-bold text-white tracking-tight">Hydration Tracker</h3>
+            <div className="flex items-center gap-1.5">
+              <h3 className="text-xs sm:text-sm font-bold text-white tracking-tight">Hydration Tracker</h3>
+              {feedback && (
+                <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-sky-400 text-dark-950 animate-bounce">
+                  {feedback}
+                </span>
+              )}
+            </div>
             <p className="text-[10px] text-slate-400">{percentage}% of daily goal</p>
           </div>
         </div>
         <div className="text-right">
           <span className="text-sm sm:text-base font-extrabold text-sky-400 font-mono tracking-tight">
-            {Number(currentWaterMl).toLocaleString()}
+            {Number(effectiveWater).toLocaleString()}
           </span>
           <span className="text-[10px] text-slate-400 font-normal"> / {Number(targetWaterMl).toLocaleString()} ml</span>
         </div>

@@ -5,11 +5,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { activityService } from '../../services/activityService';
 import { formatDateToISO, formatDistance } from '../../lib/utils';
 import { fastCache } from '../../lib/cache';
-import { Button } from '../../components/common/Button';
-import { StepLoggerModal } from '../../components/activity/StepLoggerModal';
-import { AppleHealthSyncModal } from '../../components/activity/AppleHealthSyncModal';
 import { ActivitySkeleton } from '../../components/common/Skeleton';
-import { usePhoneStepTracker } from '../../hooks/usePhoneStepTracker';
 import {
   BarChart,
   Bar,
@@ -25,21 +21,13 @@ import {
   MapPin,
   Flame,
   Clock,
-  Plus,
-  TrendingUp,
   Award,
-  Smartphone,
-  Play,
-  Square,
-  Sparkles,
   Zap,
-  Activity,
-  AlertCircle,
 } from 'lucide-react';
 
 export const ActivityPage = () => {
   const { user, profile } = useAuth();
-  const { success, error: toastError } = useToast();
+  const { success } = useToast();
   const location = useLocation();
   const navigate = useNavigate();
   const today = formatDateToISO();
@@ -49,8 +37,6 @@ export const ActivityPage = () => {
   const [todayActivity, setTodayActivity] = useState(cachedToday || null);
   const [weeklyLogs, setWeeklyLogs] = useState([]);
   const [isLoading, setIsLoading] = useState(!cachedToday);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isAppleHealthModalOpen, setIsAppleHealthModalOpen] = useState(false);
 
   const targetSteps = profile?.daily_step_target || 10000;
   const unit = profile?.unit_system || 'metric';
@@ -104,69 +90,7 @@ export const ActivityPage = () => {
   }, [location.search, user, today, success, loadActivityData, navigate]);
 
   // Base steps already stored in DB for today
-  const baseSteps = todayActivity?.steps || 0;
-
-  // Real-time Phone Accelerometer Step Tracker
-  const handleBatchSteps = useCallback(
-    async (sessionSteps) => {
-      if (!user) return;
-      const totalNow = baseSteps + sessionSteps;
-      await activityService.upsertActivity(user.id, {
-        date: today,
-        steps: totalNow,
-      });
-      loadActivityData();
-    },
-    [user, baseSteps, today, loadActivityData]
-  );
-
-  const {
-    isTracking,
-    sessionSteps,
-    totalSteps: liveTotalSteps,
-    currentCadence,
-    error: trackerError,
-    startTracking,
-    stopTracking,
-  } = usePhoneStepTracker({
-    onStepBatch: handleBatchSteps,
-    initialTodaySteps: baseSteps,
-  });
-
-  const handleToggleTracker = async () => {
-    if (isTracking) {
-      const added = stopTracking();
-      if (user && added > 0) {
-        const finalTotal = baseSteps + added;
-        await activityService.upsertActivity(user.id, {
-          date: today,
-          steps: finalTotal,
-        });
-        loadActivityData();
-        success(`Phone step session completed! Logged ${added} steps.`);
-      }
-    } else {
-      const ok = await startTracking();
-      if (ok) {
-        success('Phone motion step tracker active! Walk with your phone to count steps.');
-      } else if (trackerError) {
-        toastError(trackerError);
-      }
-    }
-  };
-
-  // Direct sync callback from modal
-  const handleDirectSyncSteps = async (newSteps) => {
-    if (!user) return;
-    await activityService.upsertActivity(user.id, {
-      date: today,
-      steps: newSteps,
-    });
-    loadActivityData();
-  };
-
-  // Current computed stats
-  const displaySteps = isTracking ? liveTotalSteps : baseSteps;
+  const displaySteps = todayActivity?.steps || 0;
   const currentDistance =
     todayActivity?.distance_km !== undefined
       ? todayActivity.distance_km
@@ -210,95 +134,20 @@ export const ActivityPage = () => {
     <div className="space-y-4 text-left animate-in fade-in pb-12">
       {/* Sleek Minimal Header */}
       <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
-          <Footprints className="w-5 h-5 text-lime" />
-          <span>Activity &amp; Steps</span>
-        </h1>
-
-        <div className="flex items-center gap-2">
-          {/* Apple Health / Android Sync Shortcut */}
-          <button
-            type="button"
-            onClick={() => setIsAppleHealthModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-dark-850 hover:bg-dark-800 border border-white/10 text-xs font-bold text-slate-200 hover:text-white transition-all active:scale-95"
-            title="Sync with Apple Health or Google Fit"
-          >
-            <Smartphone className="w-3.5 h-3.5 text-lime" />
-            <span>Sync Phone</span>
-          </button>
-
-          {/* Manual Log */}
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => setIsModalOpen(true)}
-            leftIcon={<Plus className="w-3.5 h-3.5" />}
-            className="font-bold shadow-lime-sm"
-          >
-            Log
-          </Button>
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* Auto Phone Motion Step Tracker Card (iPhone & Android)                    */}
-      {/* ========================================================================= */}
-      <div
-        className={`rounded-2xl p-3.5 sm:p-4 border transition-all ${
-          isTracking
-            ? 'bg-gradient-to-r from-lime/15 via-emerald-950/40 to-dark-900 border-lime/50 shadow-[0_0_25px_rgba(187,244,61,0.15)]'
-            : 'bg-white/[0.03] border-white/10 hover:border-white/20'
-        }`}
-      >
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div
-              className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                isTracking
-                  ? 'bg-lime text-dark-950 shadow-lime-sm animate-pulse'
-                  : 'bg-white/[0.05] text-lime border border-white/10'
-              }`}
-            >
-              <Smartphone className="w-4 h-4" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h3 className="text-xs font-bold text-white uppercase tracking-wider truncate">
-                  Auto Phone Step Tracker
-                </h3>
-                {isTracking && (
-                  <span className="flex items-center gap-1 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-lime text-dark-950 animate-pulse">
-                    <span className="w-1.5 h-1.5 rounded-full bg-dark-950" />
-                    LIVE
-                  </span>
-                )}
-              </div>
-              <p className="text-[11px] text-slate-400 truncate mt-0.5">
-                {isTracking
-                  ? `Walking: +${sessionSteps} steps • ${currentCadence} steps/min`
-                  : 'Uses built-in phone sensor (iPhone & Android)'}
-              </p>
-            </div>
-          </div>
-
-          <Button
-            type="button"
-            size="sm"
-            variant={isTracking ? 'danger' : 'secondary'}
-            onClick={handleToggleTracker}
-            leftIcon={isTracking ? <Square className="w-3 h-3" /> : <Play className="w-3 h-3 text-lime" />}
-            className="shrink-0 font-bold text-xs"
-          >
-            {isTracking ? 'Stop' : 'Track Steps'}
-          </Button>
+        <div>
+          <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
+            <Footprints className="w-5 h-5 text-lime" />
+            <span>Activity &amp; Steps</span>
+          </h1>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Auto-synced with Apple Health
+          </p>
         </div>
 
-        {trackerError && (
-          <div className="mt-2 text-[11px] text-rose-400 flex items-center gap-1">
-            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-            <span>{trackerError}</span>
-          </div>
-        )}
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-lime/10 border border-lime/30 text-[11px] font-bold text-lime">
+          <Zap className="w-3.5 h-3.5 fill-current" />
+          <span>Live Sync</span>
+        </div>
       </div>
 
       {/* Main Today Steps Ring / Hero Card - Compact Glance */}
@@ -455,22 +304,6 @@ export const ActivityPage = () => {
           </ResponsiveContainer>
         </div>
       </div>
-
-      {/* Modals */}
-      <StepLoggerModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onActivitySaved={loadActivityData}
-        defaultDate={today}
-        initialSteps={displaySteps}
-      />
-
-      <AppleHealthSyncModal
-        isOpen={isAppleHealthModalOpen}
-        onClose={() => setIsAppleHealthModalOpen(false)}
-        onSyncSteps={handleDirectSyncSteps}
-        currentSteps={displaySteps}
-      />
     </div>
   );
 };

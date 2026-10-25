@@ -22,16 +22,6 @@ export const TopHeader = () => {
 
         {/* Clean Action Shortcuts */}
         <div className="flex items-center gap-2">
-          {/* Quick Activity Button */}
-          <button
-            onClick={() => navigate('/app/activity')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] active:scale-95 border border-white/10 text-slate-200 hover:text-white transition-all text-xs font-semibold focus:outline-none"
-            title="Daily Activity & Steps"
-          >
-            <Footprints className="w-3.5 h-3.5 text-lime" />
-            <span className="font-semibold text-white">Activity</span>
-          </button>
-
           {/* Settings shortcut */}
           <Link
             to="/app/settings"

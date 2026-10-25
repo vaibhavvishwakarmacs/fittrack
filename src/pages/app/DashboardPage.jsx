@@ -16,7 +16,6 @@ import { MacroRing } from '../../components/nutrition/MacroRing';
 import { WorkoutCard } from '../../components/workouts/WorkoutCard';
 import { WorkoutLoggerModal } from '../../components/workouts/WorkoutLoggerModal';
 import { FoodLoggerModal } from '../../components/nutrition/FoodLoggerModal';
-import { StepLoggerModal } from '../../components/activity/StepLoggerModal';
 import { WeightLoggerModal } from '../../components/profile/WeightLoggerModal';
 import { ShareCardModal } from '../../components/common/ShareCardModal';
 import {
@@ -28,6 +27,7 @@ import {
   Scale,
   Share2,
   ChevronRight,
+  Sparkles,
 } from 'lucide-react';
 
 export const DashboardPage = () => {
@@ -47,11 +47,11 @@ export const DashboardPage = () => {
   const [workouts, setWorkouts] = useState(cachedWorkouts || []);
   const [nutritionLogs, setNutritionLogs] = useState(cachedDayNut?.foodLogs || []);
   const [waterMl, setWaterMl] = useState(cachedDayNut?.totalWaterMl || 0);
+  const [waterAddedFeedback, setWaterAddedFeedback] = useState(null);
   const [activity, setActivity] = useState(cachedAct || null);
 
   // Modals state
   const [isFoodModalOpen, setIsFoodModalOpen] = useState(false);
-  const [isStepModalOpen, setIsStepModalOpen] = useState(false);
   const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
   const [isShareDailyOpen, setIsShareDailyOpen] = useState(false);
 
@@ -95,6 +95,28 @@ export const DashboardPage = () => {
 
   const todaySteps = activity?.steps || 0;
   const todayWorkout = workouts.find((w) => (w.started_at || '').startsWith(today));
+
+  // Instant Optimistic Water Logger (0ms latency, zero lag)
+  const handleQuickWater = (amount) => {
+    if (!user) return;
+    setWaterMl((prev) => Math.max(0, prev + amount));
+    setWaterAddedFeedback(amount > 0 ? `+${amount}ml` : `${amount}ml`);
+    setTimeout(() => setWaterAddedFeedback(null), 1200);
+
+    // Update in-memory cache synchronously
+    const cached = fastCache.get(`day_nutrition:${user.id}:${today}`);
+    if (cached) {
+      fastCache.set(`day_nutrition:${user.id}:${today}`, {
+        ...cached,
+        totalWaterMl: Math.max(0, (cached.totalWaterMl || 0) + amount),
+      });
+    }
+
+    // Silent background sync
+    nutritionService.logWater(user.id, today, amount).catch(() => {
+      setWaterMl((prev) => Math.max(0, prev - amount));
+    });
+  };
 
   if (isLoading && workouts.length === 0 && !activity) {
     return <DashboardSkeleton />;
@@ -184,7 +206,7 @@ export const DashboardPage = () => {
             target: targetSteps,
             color: 'bg-lime',
           }}
-          onClick={() => setIsStepModalOpen(true)}
+          onClick={() => navigate('/app/activity')}
         />
 
         {/* Calories Burned (Active + Workout) */}
@@ -197,14 +219,20 @@ export const DashboardPage = () => {
           iconBg="bg-amber-400/10"
         />
 
-        {/* Water Intake - Direct 1-tap Quick Add */}
+        {/* Water Intake - Direct 1-tap Instant Quick Add */}
         <StatCard
           title="Hydration"
           value={waterMl.toLocaleString()}
           unit="ml"
-          icon={<Droplets className="w-4 h-4 text-sky-400" />}
+          icon={<Droplets className={`w-4 h-4 text-sky-400 transition-transform ${waterAddedFeedback ? 'scale-125 text-cyan-300' : ''}`} />}
           iconBg="bg-sky-400/10"
-          subtitle={`${Math.min(Math.round((waterMl / targetWater) * 100), 100)}% of goal`}
+          subtitle={
+            waterAddedFeedback ? (
+              <span className="text-cyan-300 font-extrabold animate-pulse">{waterAddedFeedback} added!</span>
+            ) : (
+              `${Math.min(Math.round((waterMl / targetWater) * 100), 100)}% of goal`
+            )
+          }
           progress={{
             current: waterMl,
             target: targetWater,
@@ -214,24 +242,16 @@ export const DashboardPage = () => {
             <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
               <button
                 type="button"
-                onClick={async () => {
-                  if (!user) return;
-                  await nutritionService.logWater(user.id, today, 250);
-                  loadDashboardData();
-                }}
-                className="flex-1 py-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 active:scale-95 text-[10px] font-bold text-sky-300 border border-sky-500/30 text-center transition-all"
+                onClick={() => handleQuickWater(250)}
+                className="flex-1 py-1.5 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 active:scale-90 text-[10px] font-bold text-sky-300 border border-sky-500/30 text-center transition-all"
                 title="Log 250ml"
               >
                 +250ml
               </button>
               <button
                 type="button"
-                onClick={async () => {
-                  if (!user) return;
-                  await nutritionService.logWater(user.id, today, 500);
-                  loadDashboardData();
-                }}
-                className="flex-1 py-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 active:scale-95 text-[10px] font-bold text-sky-300 border border-sky-500/30 text-center transition-all"
+                onClick={() => handleQuickWater(500)}
+                className="flex-1 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 active:scale-90 text-[10px] font-bold text-sky-300 border border-sky-500/40 text-center transition-all shadow-[0_0_10px_rgba(56,189,248,0.15)]"
                 title="Log 500ml"
               >
                 +500ml
@@ -335,14 +355,6 @@ export const DashboardPage = () => {
         onClose={() => setIsFoodModalOpen(false)}
         onFoodLogged={loadDashboardData}
         defaultDate={today}
-      />
-
-      <StepLoggerModal
-        isOpen={isStepModalOpen}
-        onClose={() => setIsStepModalOpen(false)}
-        onActivitySaved={loadDashboardData}
-        defaultDate={today}
-        initialSteps={todaySteps}
       />
 
       <WeightLoggerModal

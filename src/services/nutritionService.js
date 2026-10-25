@@ -52,6 +52,15 @@ export const nutritionService = {
     return { data: dayRes.data, error: dayRes.error };
   },
 
+  async getNutritionRange(userId, startDate, endDate) {
+    try {
+      const res = await api.get(`/nutrition/range?startDate=${startDate}&endDate=${endDate}`);
+      return { foodLogs: res.foodLogs || [], waterLogs: res.waterLogs || [], error: null };
+    } catch {
+      return { foodLogs: [], waterLogs: [], error: null };
+    }
+  },
+
   async addFoodLog(userId, payload) {
     fastCache.invalidatePrefix(`nutrition:${userId}`);
     fastCache.invalidatePrefix(`day_nutrition:${userId}`);

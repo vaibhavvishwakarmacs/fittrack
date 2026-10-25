@@ -5,6 +5,28 @@ import { authMiddleware } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// GET /api/nutrition/range?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+router.get('/range', authMiddleware, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    if (!startDate || !endDate) {
+      return res.status(400).json({ error: 'startDate and endDate query parameters required.' });
+    }
+
+    const [foodLogs, waterLogs] = await Promise.all([
+      Nutrition.find({ userId: req.userId, date: { $gte: startDate, $lte: endDate } }).sort({ date: 1 }),
+      Water.find({ userId: req.userId, date: { $gte: startDate, $lte: endDate } }).sort({ date: 1 }),
+    ]);
+
+    res.json({
+      foodLogs: foodLogs.map((item) => item.toJSON()),
+      waterLogs: waterLogs.map((item) => item.toJSON()),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Failed to fetch nutrition range.' });
+  }
+});
+
 // GET /api/nutrition?date=YYYY-MM-DD
 router.get('/', authMiddleware, async (req, res) => {
   try {

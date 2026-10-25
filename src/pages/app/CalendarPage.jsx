@@ -35,35 +35,8 @@ export const CalendarPage = () => {
 
   // Load all user workouts once to show calendar dots
   const [allWorkouts, setAllWorkouts] = useState([]);
-  useEffect(() => {
-    if (!user) return;
-    workoutService.getWorkouts(user.id).then(({ data }) => {
-      setAllWorkouts(data || []);
-    });
-  }, [user]);
-
-  // Load details for selected date
-  const loadDayData = useCallback(async (date) => {
-    if (!user) return;
-    try {
-      const [woRes, nutRes, actRes] = await Promise.all([
-        workoutService.getWorkouts(user.id),
-        nutritionService.getNutritionLogs(user.id, date),
-        activityService.getActivityByDate(user.id, date),
-      ]);
-
-      const dayWorkouts = (woRes.data || []).filter((w) => (w.started_at || '').startsWith(date));
-      setWorkouts(dayWorkouts);
-      setNutritionLogs(nutRes.data || []);
-      setActivity(actRes.data || null);
-    } catch {
-      // ignore
-    }
-  }, [user]);
-
-  useEffect(() => {
-    loadDayData(selectedDate);
-  }, [selectedDate, loadDayData]);
+  const [monthFoodLogs, setMonthFoodLogs] = useState([]);
+  const [monthActivities, setMonthActivities] = useState([]);
 
   // Generate calendar days for currentMonth
   const year = currentMonth.getFullYear();
@@ -88,6 +61,46 @@ export const CalendarPage = () => {
 
   const monthName = currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   const todayIso = formatDateToISO();
+
+  // Load monthly action data (workouts, meals, steps)
+  useEffect(() => {
+    if (!user) return;
+    const startOfMonth = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+    const endOfMonth = `${year}-${String(month + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+
+    Promise.all([
+      workoutService.getWorkouts(user.id),
+      nutritionService.getNutritionRange(user.id, startOfMonth, endOfMonth),
+      activityService.getActivityRange(user.id, startOfMonth, endOfMonth),
+    ]).then(([woRes, nutRes, actRes]) => {
+      setAllWorkouts(woRes.data || []);
+      setMonthFoodLogs(nutRes.foodLogs || []);
+      setMonthActivities(actRes.data || []);
+    });
+  }, [user, year, month, daysInMonth]);
+
+  // Load details for selected date
+  const loadDayData = useCallback(async (date) => {
+    if (!user) return;
+    try {
+      const [woRes, nutRes, actRes] = await Promise.all([
+        workoutService.getWorkouts(user.id),
+        nutritionService.getNutritionLogs(user.id, date),
+        activityService.getActivityByDate(user.id, date),
+      ]);
+
+      const dayWorkouts = (woRes.data || []).filter((w) => (w.started_at || '').startsWith(date));
+      setWorkouts(dayWorkouts);
+      setNutritionLogs(nutRes.data || []);
+      setActivity(actRes.data || null);
+    } catch {
+      // ignore
+    }
+  }, [user]);
+
+  useEffect(() => {
+    loadDayData(selectedDate);
+  }, [selectedDate, loadDayData]);
 
   // Calories for selected date
   const dayCalories = nutritionLogs.reduce((acc, curr) => acc + (curr.calories || 0), 0);
@@ -125,11 +138,21 @@ export const CalendarPage = () => {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <h2 className="text-sm sm:text-base font-bold text-white tracking-tight">{monthName}</h2>
-            {/* Minimal inline indicator */}
-            <span className="flex items-center gap-1 text-[10px] text-slate-400 font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-lime inline-block" />
-              <span>Workout</span>
-            </span>
+            {/* Multi-action Legend Desktop */}
+            <div className="hidden sm:flex items-center gap-2.5 text-[10px] text-slate-400 font-semibold ml-2 pl-2 border-l border-white/10">
+              <span className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-lime inline-block shadow-[0_0_4px_rgba(187,244,61,0.5)]" />
+                <span>Workout</span>
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block shadow-[0_0_4px_rgba(251,191,36,0.5)]" />
+                <span>Meals</span>
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-sky-400 inline-block shadow-[0_0_4px_rgba(56,189,248,0.5)]" />
+                <span>Steps</span>
+              </span>
+            </div>
           </div>
 
           <div className="flex items-center gap-1">
@@ -159,6 +182,22 @@ export const CalendarPage = () => {
           </div>
         </div>
 
+        {/* Multi-action Legend Mobile */}
+        <div className="flex sm:hidden items-center justify-center gap-3 text-[9px] text-slate-400 font-semibold mb-2">
+          <span className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-lime shadow-[0_0_4px_rgba(187,244,61,0.5)]" />
+            <span>Workout</span>
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_4px_rgba(251,191,36,0.5)]" />
+            <span>Meals</span>
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-sky-400 shadow-[0_0_4px_rgba(56,189,248,0.5)]" />
+            <span>Steps</span>
+          </span>
+        </div>
+
         {/* Days of week header */}
         <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
           <span>Sun</span>
@@ -170,7 +209,7 @@ export const CalendarPage = () => {
           <span>Sat</span>
         </div>
 
-        {/* Compact Calendar Grid - Reduced mobile height */}
+        {/* Compact Calendar Grid */}
         <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
           {calendarDays.map((dateStr, idx) => {
             if (!dateStr) {
@@ -181,8 +220,11 @@ export const CalendarPage = () => {
             const isSelected = selectedDate === dateStr;
             const isToday = dateStr === todayIso;
 
-            // Check if there is workout on this date
+            // Check actions performed on this date
             const hasWorkout = allWorkouts.some((w) => (w.started_at || '').startsWith(dateStr));
+            const hasMeals = monthFoodLogs.some((f) => f.date === dateStr);
+            const actRecord = monthActivities.find((a) => a.date === dateStr);
+            const hasSteps = (actRecord?.steps || 0) > 0;
 
             return (
               <button
@@ -198,14 +240,30 @@ export const CalendarPage = () => {
               >
                 <span className="text-xs sm:text-sm font-semibold">{dayNum}</span>
 
-                {/* Status dot */}
-                <div className="flex gap-1 items-center justify-center h-1.5">
+                {/* Multi-action status dots */}
+                <div className="flex gap-0.5 items-center justify-center h-1.5">
                   {hasWorkout && (
                     <span
                       className={`w-1.5 h-1.5 rounded-full ${
-                        isSelected ? 'bg-dark-950' : 'bg-lime'
+                        isSelected ? 'bg-dark-950 ring-1 ring-dark-950/30' : 'bg-lime shadow-[0_0_4px_rgba(187,244,61,0.5)]'
                       }`}
                       title="Workout logged"
+                    />
+                  )}
+                  {hasMeals && (
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        isSelected ? 'bg-amber-950 ring-1 ring-amber-950/30' : 'bg-amber-400 shadow-[0_0_4px_rgba(251,191,36,0.5)]'
+                      }`}
+                      title="Meals logged"
+                    />
+                  )}
+                  {hasSteps && (
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        isSelected ? 'bg-sky-950 ring-1 ring-sky-950/30' : 'bg-sky-400 shadow-[0_0_4px_rgba(56,189,248,0.5)]'
+                      }`}
+                      title="Steps logged"
                     />
                   )}
                 </div>
@@ -323,6 +381,28 @@ export const CalendarPage = () => {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Steps & Activity logged for selected day */}
+        {activity && (activity.steps || 0) > 0 && (
+          <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-sky-500/15 text-sky-400 flex items-center justify-center shrink-0">
+                <Footprints className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="font-extrabold text-white text-sm block">
+                  {activity.steps.toLocaleString()} steps
+                </span>
+                <span className="text-[10px] text-slate-400 block">
+                  {activity.distance_km || 0} km • {activity.active_calories || 0} kcal active burn
+                </span>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30">
+              Apple Health
+            </span>
           </div>
         )}
       </div>
