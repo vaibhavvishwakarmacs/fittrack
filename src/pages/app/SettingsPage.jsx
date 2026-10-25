@@ -17,7 +17,14 @@ import {
   Save,
   Download,
   Database,
+  Sparkles,
+  Zap,
+  Key,
+  ExternalLink,
+  ShieldCheck,
 } from 'lucide-react';
+import { aiService } from '../../services/aiService';
+import { AiKeyModal } from '../../components/nutrition/AiKeyModal';
 
 export const SettingsPage = () => {
   const { profile, updateProfile, signOut, isConfigured } = useAuth();
@@ -27,6 +34,9 @@ export const SettingsPage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [isAiKeyModalOpen, setIsAiKeyModalOpen] = useState(false);
+  const [hasGeminiKey, setHasGeminiKey] = useState(() => Boolean(aiService.getGeminiKey()));
+  const [hasOpenAIKey, setHasOpenAIKey] = useState(() => Boolean(aiService.getOpenAIKey()));
 
   // Catch PWA beforeinstallprompt
   useEffect(() => {
@@ -328,6 +338,67 @@ export const SettingsPage = () => {
         </div>
       </form>
 
+      {/* AI Nutrition Vision Agent Card */}
+      <div className="glass-card rounded-3xl p-5 sm:p-6 border border-lime/30 bg-gradient-to-br from-lime/10 via-dark-900 to-dark-900 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-lime/20 border border-lime/40 text-lime flex items-center justify-center shrink-0 shadow-lime-sm">
+              <Zap className="w-5 h-5 fill-lime" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold text-white uppercase tracking-wider">
+                  AI Nutrition Vision Agent
+                </h2>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-lime/20 text-lime border border-lime/30">
+                  Google Gemini 1.5 Flash
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-0.5">
+                Automatically calculates calories, grams &amp; macros from food photos.
+              </p>
+            </div>
+          </div>
+
+          <span
+            className={`self-start sm:self-auto px-2.5 py-1 rounded-full text-xs font-bold ${
+              hasGeminiKey || hasOpenAIKey
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+            }`}
+          >
+            {hasGeminiKey ? '⚡ Gemini Free Active (1,500/day)' : hasOpenAIKey ? '⚡ OpenAI Vision Active' : 'Setup Required (Free)'}
+          </span>
+        </div>
+
+        <div className="p-3.5 rounded-2xl bg-dark-950 border border-white/5 space-y-2 text-xs">
+          <p className="text-slate-300">
+            Powered by <strong>Google Gemini Flash</strong>: 1,500 daily food image scans with 0 cost and no credit card needed.
+          </p>
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={() => setIsAiKeyModalOpen(true)}
+              leftIcon={<Key className="w-3.5 h-3.5" />}
+              className="font-bold shadow-lime-sm"
+            >
+              {hasGeminiKey || hasOpenAIKey ? 'Update API Key' : 'Connect Free AI (10s)'}
+            </Button>
+            <a
+              href="https://aistudio.google.com/app/apikey"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-dark-850 hover:bg-dark-800 border border-white/10 text-xs font-semibold text-slate-300 hover:text-white transition-colors"
+            >
+              <span>Get Free Key on Google AI Studio</span>
+              <ExternalLink className="w-3 h-3 text-lime" />
+            </a>
+          </div>
+        </div>
+      </div>
+
       {/* Database & Account Area */}
       <div className="glass-card rounded-3xl p-5 sm:p-6 border border-white/10 space-y-4">
         <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
@@ -367,6 +438,20 @@ export const SettingsPage = () => {
           </Button>
         </div>
       </div>
+
+      {/* AI Key Configuration Modal */}
+      <AiKeyModal
+        isOpen={isAiKeyModalOpen}
+        onClose={() => {
+          setIsAiKeyModalOpen(false);
+          setHasGeminiKey(Boolean(aiService.getGeminiKey()));
+          setHasOpenAIKey(Boolean(aiService.getOpenAIKey()));
+        }}
+        onKeySaved={() => {
+          setHasGeminiKey(Boolean(aiService.getGeminiKey()));
+          setHasOpenAIKey(Boolean(aiService.getOpenAIKey()));
+        }}
+      />
     </div>
   );
 };

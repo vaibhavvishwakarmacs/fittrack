@@ -12,6 +12,7 @@ import activityRoutes from './routes/activityRoutes.js';
 import weightRoutes from './routes/weightRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
 import exerciseRoutes from './routes/exerciseRoutes.js';
+import aiRoutes from './routes/aiRoutes.js';
 
 dotenv.config();
 
@@ -83,6 +84,7 @@ const registerRoutes = (prefix = '') => {
   app.use(`${prefix}/weight`, weightRoutes);
   app.use(`${prefix}/upload`, uploadRoutes);
   app.use(`${prefix}/exercises`, exerciseRoutes);
+  app.use(`${prefix}/ai`, aiRoutes);
 };
 
 // Mount for standard /api routes and root fallback
