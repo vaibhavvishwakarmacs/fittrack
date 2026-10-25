@@ -76,8 +76,11 @@ router.post('/', authMiddleware, async (req, res) => {
 router.get('/sync', async (req, res) => {
   try {
     const rawSteps = req.query.steps;
-    if (rawSteps === undefined) {
-      return res.status(400).json({ error: 'Steps query parameter is required.' });
+    if (rawSteps === undefined || rawSteps === '' || isNaN(Number(rawSteps))) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing steps parameter! In your Apple Shortcut, tap right after "&steps=" and select the "Sum" variable.',
+      });
     }
 
     let targetUserId = null;
@@ -111,9 +114,18 @@ router.get('/sync', async (req, res) => {
       return res.status(401).json({ error: 'User could not be identified for step sync.' });
     }
 
-    const todayDate = new Date().toISOString().split('T')[0];
-    const targetDate = req.query.date || todayDate;
-    const s = Number(rawSteps) || 0;
+    // Calculate local date (defaults to Asia/Kolkata timezone so early morning hours match Indian local time)
+    let targetDate = req.query.date;
+    if (!targetDate) {
+      const tz = req.query.tz || 'Asia/Kolkata';
+      try {
+        targetDate = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date());
+      } catch {
+        targetDate = new Date().toISOString().split('T')[0];
+      }
+    }
+
+    const s = Math.round(Number(rawSteps)) || 0;
     const dist = Math.round(s * 0.00075 * 100) / 100;
     const cals = Math.round(s * 0.04);
     const mins = Math.round(s / 100);
