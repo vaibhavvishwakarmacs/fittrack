@@ -141,8 +141,14 @@ router.post('/analyze-food', upload.single('image'), async (req, res) => {
 
 // Google Gemini Flash Vision caller
 async function analyzeWithGemini(base64Image, mimeType, apiKey) {
-  // Try gemini-1.5-flash first, with fallback to gemini-2.0-flash
-  const models = ['gemini-1.5-flash', 'gemini-2.0-flash'];
+  // Use latest flash models (gemini-flash-latest, gemini-3.8-flash) with legacy fallbacks
+  const models = [
+    'gemini-flash-latest',
+    'gemini-3.8-flash',
+    'gemini-2.5-flash-lite',
+    'gemini-1.5-flash',
+    'gemini-2.0-flash',
+  ];
 
   for (const model of models) {
     try {

@@ -4,7 +4,11 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 export const aiService = {
   getGeminiKey() {
-    return localStorage.getItem('fittrack_gemini_key') || '';
+    return (
+      localStorage.getItem('fittrack_gemini_key') ||
+      import.meta.env.VITE_GEMINI_API_KEY ||
+      ''
+    );
   },
 
   setGeminiKey(key) {
@@ -16,7 +20,11 @@ export const aiService = {
   },
 
   getOpenAIKey() {
-    return localStorage.getItem('fittrack_openai_key') || '';
+    return (
+      localStorage.getItem('fittrack_openai_key') ||
+      import.meta.env.VITE_OPENAI_API_KEY ||
+      ''
+    );
   },
 
   setOpenAIKey(key) {
