@@ -16,7 +16,9 @@ export const LoginPage = () => {
   const location = useLocation();
   const [isLoading, setIsLoading] = useState(false);
 
-  const from = location.state?.from?.pathname || '/app/dashboard';
+  const from = location.state?.from
+    ? `${location.state.from.pathname || '/app/dashboard'}${location.state.from.search || ''}`
+    : '/app/dashboard';
 
   const {
     register,
