@@ -33,6 +33,11 @@ const SettingsPage = lazy(loadSettingsPage);
 const WorkoutSessionPage = lazy(loadWorkoutSessionPage);
 const NotFoundPage = lazy(loadNotFoundPage);
 
+const RedirectWithSearch = ({ to }) => {
+  const { search } = window.location;
+  return <Navigate to={`${to}${search || ''}`} replace />;
+};
+
 export const AppRoutes = () => {
   // Eagerly prefetch main app chunks during idle time for 0ms tab switches
   useEffect(() => {
@@ -59,6 +64,16 @@ export const AppRoutes = () => {
       <Routes>
         {/* Root redirect */}
         <Route path="/" element={<Navigate to="/app/dashboard" replace />} />
+
+        {/* Convenient Top-Level Aliases & Shortcut Sync */}
+        <Route path="/sync" element={<RedirectWithSearch to="/app/activity" />} />
+        <Route path="/sync-steps" element={<RedirectWithSearch to="/app/activity" />} />
+        <Route path="/activity" element={<RedirectWithSearch to="/app/activity" />} />
+        <Route path="/dashboard" element={<RedirectWithSearch to="/app/dashboard" />} />
+        <Route path="/calendar" element={<RedirectWithSearch to="/app/calendar" />} />
+        <Route path="/workouts" element={<RedirectWithSearch to="/app/workouts" />} />
+        <Route path="/nutrition" element={<RedirectWithSearch to="/app/nutrition" />} />
+        <Route path="/profile" element={<RedirectWithSearch to="/app/profile" />} />
 
         {/* Public Auth Routes */}
         <Route element={<AuthLayout />}>

@@ -66,62 +66,21 @@ export const AppleHealthSyncModal = ({
       maxWidth="md"
     >
       <div className="space-y-4 text-left">
-        {/* Method 1: Apple Health 1-Tap Shortcut */}
-        <div className="p-4 rounded-2xl bg-gradient-to-br from-lime/15 via-dark-900 to-dark-950 border border-lime/30 space-y-2.5">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-lime/20 border border-lime/40 text-lime flex items-center justify-center shrink-0">
-              <Zap className="w-4 h-4 fill-lime" />
-            </div>
+        {/* Primary: Direct Step Sync (Fastest & Guaranteed to Work) */}
+        <form onSubmit={handleDirectSync} className="p-4 rounded-2xl bg-gradient-to-br from-lime/10 via-dark-900 to-dark-950 border border-lime/30 space-y-3">
+          <div className="flex items-center justify-between">
             <div>
               <h4 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-1.5">
-                <span>1-Tap Apple Health Shortcut</span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-lime text-dark-950 font-black">
-                  iPhone
-                </span>
+                <Footprints className="w-4 h-4 text-lime" />
+                <span>Enter Apple Health Steps</span>
               </h4>
               <p className="text-[11px] text-slate-300 mt-0.5">
-                Automatically read today's steps from Apple HealthKit into FitTrack
+                Check steps in your iPhone Health app and enter or tap a preset:
               </p>
             </div>
-          </div>
-
-          <div className="p-2.5 rounded-xl bg-dark-950/80 border border-white/5 space-y-1.5 text-[11px] text-slate-300">
-            <p className="font-semibold text-white">How it works in iOS Shortcuts app:</p>
-            <ol className="list-decimal list-inside space-y-1 text-slate-400 pl-1">
-              <li>Open the <strong>Shortcuts</strong> app on your iPhone.</li>
-              <li>Create an Action: <em>"Find Health Samples where Type is Steps, Date is Today"</em>.</li>
-              <li>Add Action: <em>"Open URL"</em> with your FitTrack sync link:</li>
-            </ol>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              readOnly
-              value={`${appSyncUrl}[Steps]`}
-              className="flex-1 bg-dark-950 border border-white/10 rounded-xl px-3 py-2 text-xs text-lime font-mono truncate focus:outline-none"
-            />
-            <button
-              type="button"
-              onClick={() => handleCopySyncUrl(`${appSyncUrl}[Steps]`)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-dark-850 hover:bg-dark-800 border border-white/10 text-xs font-bold text-white transition-all active:scale-95 shrink-0"
-            >
-              {copied ? <Check className="w-3.5 h-3.5 text-lime" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copied ? 'Copied' : 'Copy'}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Method 2: Direct Sync or Quick Presets */}
-        <form onSubmit={handleDirectSync} className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-3">
-          <div>
-            <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-1 flex items-center gap-1.5">
-              <Footprints className="w-3.5 h-3.5 text-lime" />
-              <span>Direct Step Sync</span>
-            </h4>
-            <p className="text-[11px] text-slate-400">
-              Open Apple Health or Google Fit, check your steps today, and sync below:
-            </p>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-lime text-dark-950">
+              Instant
+            </span>
           </div>
 
           <Input
@@ -132,6 +91,7 @@ export const AppleHealthSyncModal = ({
             onChange={(e) => setInputSteps(e.target.value)}
             leftIcon={<Footprints className="w-4 h-4 text-lime" />}
             required
+            autoFocus
           />
 
           {/* Quick Step Chips */}
@@ -145,7 +105,7 @@ export const AppleHealthSyncModal = ({
                   key={inc}
                   type="button"
                   onClick={() => handleQuickPreset(inc)}
-                  className="py-1.5 rounded-xl bg-dark-850 hover:bg-dark-800 border border-white/5 hover:border-lime/30 text-xs font-bold text-slate-300 hover:text-white transition-colors"
+                  className="py-1.5 rounded-xl bg-dark-850 hover:bg-dark-800 border border-white/10 hover:border-lime/40 text-xs font-bold text-slate-200 hover:text-white transition-all active:scale-95"
                 >
                   +{inc >= 1000 ? `${inc / 1000}k` : inc}
                 </button>
@@ -155,7 +115,7 @@ export const AppleHealthSyncModal = ({
 
           <div className="pt-2 flex justify-between items-center gap-2">
             <Button type="button" variant="ghost" onClick={onClose} size="sm">
-              Close
+              Cancel
             </Button>
             <Button
               type="submit"
@@ -164,10 +124,21 @@ export const AppleHealthSyncModal = ({
               leftIcon={<Check className="w-3.5 h-3.5" />}
               className="font-bold shadow-lime-sm"
             >
-              Sync Steps
+              Save Steps Now
             </Button>
           </div>
         </form>
+
+        {/* Secondary: Automated Background Shortcut Info */}
+        <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 space-y-2 text-xs">
+          <div className="flex items-center gap-2">
+            <Zap className="w-4 h-4 text-amber-400" />
+            <h5 className="font-bold text-white text-xs">Want it 100% automated?</h5>
+          </div>
+          <p className="text-[11px] text-slate-400 leading-relaxed">
+            iPhone only allows native App Store apps under "Open App". Web apps (PWAs) cannot be opened directly from that block. The direct sync above is the fastest 1-second way!
+          </p>
+        </div>
       </div>
     </Modal>
   );
