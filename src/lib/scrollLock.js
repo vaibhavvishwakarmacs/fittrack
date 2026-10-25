@@ -32,6 +32,7 @@ export const lockScroll = () => {
     body.style.width = '100%';
     body.style.overflow = 'hidden';
     body.style.overscrollBehavior = 'none';
+    body.classList.add('modal-open');
   }
 };
 
@@ -56,6 +57,7 @@ export const unlockScroll = () => {
     body.style.width = '';
     body.style.overflow = '';
     body.style.overscrollBehavior = '';
+    body.classList.remove('modal-open');
 
     window.scrollTo(0, scrollY);
   }

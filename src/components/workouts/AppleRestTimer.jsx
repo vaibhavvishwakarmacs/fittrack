@@ -215,7 +215,7 @@ export const AppleRestTimer = ({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-2xl animate-in fade-in duration-200 select-none"
+      className="fixed inset-0 z-[95] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-2xl animate-in fade-in duration-200 select-none"
     >
       {/* iOS 26 Glassmorphism Sheet Container */}
       <div className="w-full max-w-[370px] sm:max-w-md max-h-[92vh] overflow-y-auto no-scrollbar rounded-[36px] bg-[#07090e]/85 border border-white/10 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9),0_0_40px_rgba(34,197,94,0.12)] p-5 sm:p-6 flex flex-col items-center relative backdrop-filter backdrop-blur-3xl saturate-180">

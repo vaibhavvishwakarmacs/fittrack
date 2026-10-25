@@ -629,7 +629,7 @@ export const LiveWorkoutSession = ({ isOpen, onClose, onWorkoutSaved }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#04060a] text-white flex flex-col overflow-y-auto overflow-x-hidden no-scrollbar animate-in fade-in select-none overscroll-none touch-pan-y w-full max-w-full">
+    <div className="fixed inset-0 z-[80] bg-[#04060a] text-white flex flex-col overflow-y-auto overflow-x-hidden no-scrollbar animate-in fade-in select-none overscroll-none touch-pan-y w-full max-w-full">
       {/* Top Header - iPhone Notch & Safe Area Respected */}
       <header className="sticky top-0 z-30 bg-[#07090f]/90 backdrop-blur-2xl border-b border-white/[0.08] px-3 sm:px-6 pt-[max(env(safe-area-inset-top),16px)] pb-3 transition-all w-full max-w-full">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-2 sm:gap-4">

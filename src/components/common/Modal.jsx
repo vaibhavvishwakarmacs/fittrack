@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useScrollLock } from '../../lib/scrollLock';
@@ -131,11 +132,11 @@ export const Modal = ({
     full: 'max-w-full',
   };
 
-  return (
+  const modalNode = (
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 select-none touch-none overscroll-none"
+      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 select-none touch-none overscroll-none"
       onTouchMove={(e) => {
         // Prevent background page touch gestures from scrolling viewport
         if (!contentRef.current || !contentRef.current.contains(e.target)) {
@@ -146,7 +147,7 @@ export const Modal = ({
       {/* Backdrop with smooth blur and real-time drag fade */}
       <div
         style={{ opacity: isClosing ? 0 : backdropOpacity }}
-        className="fixed inset-0 bg-black/80 backdrop-blur-md transition-opacity duration-200"
+        className="fixed inset-0 bg-black/85 backdrop-blur-md transition-opacity duration-200"
         onClick={handleTriggerClose}
       />
 
@@ -163,7 +164,7 @@ export const Modal = ({
             : 'transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease',
         }}
         className={cn(
-          'relative w-full bg-[#0a0d14] border-t sm:border border-white/10 sm:rounded-3xl rounded-t-[32px] shadow-[0_-15px_40px_rgba(0,0,0,0.85),0_20px_50px_rgba(0,0,0,0.95)] z-10 max-h-[92vh] flex flex-col overflow-hidden will-change-transform',
+          'relative w-full bg-[#0a0d14] border-t sm:border border-white/10 sm:rounded-3xl rounded-t-[32px] shadow-[0_-15px_40px_rgba(0,0,0,0.85),0_20px_50px_rgba(0,0,0,0.95)] z-10 max-h-[90vh] flex flex-col overflow-hidden will-change-transform',
           maxWidthClasses[maxWidth]
         )}
       >
@@ -218,17 +219,19 @@ export const Modal = ({
           )}
         </div>
 
-        {/* Scrollable Content (touch-pan-y enabled) */}
+        {/* Scrollable Content (touch-pan-y enabled with safe area bottom padding) */}
         <div
           ref={contentRef}
           onTouchStart={handleDragStart}
           onTouchMove={handleDragMove}
           onTouchEnd={handleDragEnd}
-          className="p-5 overflow-y-auto no-scrollbar max-h-[calc(92vh-5rem)] overscroll-contain touch-pan-y"
+          className="p-5 pb-[max(env(safe-area-inset-bottom),2.25rem)] sm:pb-6 overflow-y-auto no-scrollbar max-h-[calc(90vh-4.5rem)] overscroll-contain touch-pan-y"
         >
           {children}
         </div>
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalNode, document.body) : modalNode;
 };

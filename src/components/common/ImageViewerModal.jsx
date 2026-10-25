@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { X, ZoomIn, ZoomOut, Download, RotateCcw, ChevronDown, Maximize2 } from 'lucide-react';
 import { useScrollLock } from '../../lib/scrollLock';
 
@@ -153,11 +154,11 @@ export const ImageViewerModal = ({
   const backdropOpacity = Math.max(0.2, 1 - (Math.max(0, dragOffset.y) / 360) * 0.8);
   const dragScale = Math.max(0.72, 1 - (Math.max(0, dragOffset.y) / 900));
 
-  return (
+  const viewerNode = (
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 select-none touch-none overscroll-none"
+      className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-6 select-none touch-none overscroll-none"
       onClick={handleTriggerClose}
       onTouchMove={(e) => e.preventDefault()}
     >
@@ -304,6 +305,8 @@ export const ImageViewerModal = ({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(viewerNode, document.body) : viewerNode;
 };
 
 export const ClickableImage = ({

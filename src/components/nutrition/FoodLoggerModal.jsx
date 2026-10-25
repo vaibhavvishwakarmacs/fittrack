@@ -309,8 +309,8 @@ export const FoodLoggerModal = ({
           )}
         </div>
 
-        <div className="pt-2 flex justify-between items-center">
-          <Button type="button" variant="ghost" onClick={onClose}>
+        <div className="pt-3 pb-1 flex justify-between items-center gap-3">
+          <Button type="button" variant="ghost" onClick={onClose} className="px-5">
             Cancel
           </Button>
           <Button
@@ -319,6 +319,7 @@ export const FoodLoggerModal = ({
             size="lg"
             isLoading={isSubmitting || isUploadingPhoto}
             leftIcon={<Plus className="w-4 h-4" />}
+            className="flex-1 sm:flex-initial justify-center font-bold shadow-lime-sm"
           >
             {isEditMode ? 'Update Food' : 'Save Meal'}
           </Button>

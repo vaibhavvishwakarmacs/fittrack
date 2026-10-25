@@ -56,7 +56,7 @@ export const BottomNav = () => {
         WebkitTransform: 'translate3d(0, 0, 0)',
         transform: 'translate3d(0, 0, 0)',
       }}
-      className="fixed bottom-0 inset-x-0 z-50 bg-[#07090e]/95 backdrop-blur-2xl border-t border-white/[0.08] shadow-[0_-12px_35px_rgba(0,0,0,0.85)] pb-[max(env(safe-area-inset-bottom),10px)] will-change-transform contain-layout select-none"
+      className="fixed bottom-0 inset-x-0 z-40 bg-[#07090e]/95 backdrop-blur-2xl border-t border-white/[0.08] shadow-[0_-12px_35px_rgba(0,0,0,0.85)] pb-[max(env(safe-area-inset-bottom),10px)] will-change-transform contain-layout select-none"
     >
       <div className="max-w-md md:max-w-2xl lg:max-w-4xl mx-auto px-4 h-16 flex items-center justify-around">
         {navItems.map((item) => {

@@ -87,4 +87,18 @@
   .glow-lime-subtle {
     box-shadow: 0 0 12px -2px rgba(187, 244, 61, 0.2);
   }
+
+  /* Automatically hide the bottom navigation bar whenever a modal or session is open */
+  body.modal-open nav[aria-label="Bottom Navigation"] {
+    transform: translate3d(0, 150%, 0) !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    visibility: hidden !important;
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease !important;
+  }
+
+  nav[aria-label="Bottom Navigation"] {
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+  }
 }
+
