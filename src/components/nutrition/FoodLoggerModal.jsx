@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../lib/api';
 import { ClickableImage } from '../common/ImageViewerModal';
+import { compressImage } from '../../lib/imageCompressor';
 import { aiService } from '../../services/aiService';
 import { AiKeyModal } from './AiKeyModal';
 
@@ -150,7 +151,11 @@ export const FoodLoggerModal = ({
         toastError(msg);
       }
     } catch (err) {
-      const msg = err?.message || 'Failed to scan food with AI';
+      console.error('[AI Food Scan Exception]:', err);
+      let msg = err?.message || 'Failed to scan food with AI';
+      if (msg === 'Load failed' || msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+        msg = 'Connection to AI scanner timed out or network error. Please try again.';
+      }
       setAiError(msg);
       toastError(msg);
     } finally {
@@ -159,8 +164,11 @@ export const FoodLoggerModal = ({
   };
 
   const handlePhotoChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const rawFile = e.target.files?.[0];
+    if (!rawFile) return;
+
+    // Compress photo on mobile device to ensure fast upload and stay within limits
+    const file = await compressImage(rawFile, 1200, 0.8);
 
     // 1. Kick off AI Nutrition Vision Scan immediately!
     analyzeFoodWithAi({ file });

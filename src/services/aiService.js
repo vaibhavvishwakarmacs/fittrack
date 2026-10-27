@@ -1,4 +1,5 @@
 import { getAuthToken } from '../lib/api';
+import { compressImage } from '../lib/imageCompressor';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -66,6 +67,7 @@ Return strictly valid JSON matching this exact schema:
 
   for (const model of models) {
     try {
+      console.log(`[AI Client Gemini Direct] Trying model: ${model}...`);
       const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
       const payload = {
         contents: [
@@ -88,7 +90,7 @@ Return strictly valid JSON matching this exact schema:
       };
 
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 8000);
+      const timer = setTimeout(() => controller.abort(), 12000);
 
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -98,8 +100,11 @@ Return strictly valid JSON matching this exact schema:
       });
       clearTimeout(timer);
 
+      console.log(`[AI Client Gemini Direct] Model ${model} returned HTTP ${res.status}`);
+
       if (!res.ok) {
         const errText = await res.text();
+        console.warn(`[AI Client Gemini Direct] Model ${model} error:`, errText.slice(0, 200));
         if (errText.includes('API_KEY_INVALID') || errText.includes('API key not valid')) {
           return {
             success: false,
@@ -122,6 +127,7 @@ Return strictly valid JSON matching this exact schema:
         .trim();
 
       const parsed = JSON.parse(cleanJson);
+      console.log(`[AI Client Gemini Direct] Successfully parsed:`, parsed.food_name);
       return {
         success: true,
         provider: model,
@@ -137,7 +143,7 @@ Return strictly valid JSON matching this exact schema:
         },
       };
     } catch (err) {
-      console.warn(`[Client Gemini ${model}] failed:`, err.message);
+      console.warn(`[AI Client Gemini Direct] Model ${model} failed:`, err.message);
     }
   }
 
@@ -182,6 +188,20 @@ export const aiService = {
     const activeGeminiKey = customKey || this.getGeminiKey();
     const activeOpenAIKey = this.getOpenAIKey();
 
+    // Automatically optimize / compress image file to stay well within limits (< 200KB)
+    let optimizedFile = file;
+    if (file instanceof Blob) {
+      try {
+        optimizedFile = await compressImage(file, 1200, 0.8);
+        console.log(`[AI Client] Image compressed: ${(file.size / 1024).toFixed(0)}KB -> ${(optimizedFile.size / 1024).toFixed(0)}KB`);
+      } catch (cErr) {
+        console.warn('[AI Client] Image compression skipped:', cErr.message);
+        optimizedFile = file;
+      }
+    }
+
+    console.log('[AI Client] analyzeFoodImage called, hasGeminiKey:', Boolean(activeGeminiKey));
+
     // 1. First attempt: Use Backend API
     try {
       const headers = {};
@@ -190,17 +210,19 @@ export const aiService = {
       if (activeOpenAIKey) headers['x-openai-key'] = activeOpenAIKey;
 
       let response;
-      if (file) {
+      if (optimizedFile) {
         const formData = new FormData();
-        formData.append('image', file);
+        formData.append('image', optimizedFile);
         if (activeGeminiKey) formData.append('geminiKey', activeGeminiKey);
 
+        console.log('[AI Client] Sending multipart image to backend...');
         response = await fetch(`${API_BASE_URL}/ai/analyze-food`, {
           method: 'POST',
           headers,
           body: formData,
         });
       } else {
+        console.log('[AI Client] Sending JSON image URL/base64 to backend...');
         response = await fetch(`${API_BASE_URL}/ai/analyze-food`, {
           method: 'POST',
           headers: {
@@ -215,31 +237,37 @@ export const aiService = {
         });
       }
 
+      console.log('[AI Client] Backend responded with HTTP status:', response.status);
+
       if (response && response.ok) {
         const data = await response.json();
-        // If server successfully analyzed food, or explicitly says key is invalid:
+        console.log('[AI Client] Backend response data:', data);
         if (data && data.success) {
           return data;
         }
         if (data && data.requiresKey && !activeGeminiKey) {
           return data;
         }
+      } else if (response) {
+        const errText = await response.text();
+        console.warn(`[AI Client] Backend HTTP ${response.status} error:`, errText.slice(0, 300));
       }
     } catch (serverErr) {
-      console.warn('[AI Service Backend Route Unavailable, Falling back to direct Gemini call]:', serverErr.message);
+      console.warn('[AI Client] Backend request threw error:', serverErr.message);
     }
 
-    // 2. Client-side direct Gemini fallback (bypasses serverless timeout/offline backend)
+    // 2. Client-side direct Gemini fallback (bypasses serverless limits / cold-starts)
     if (activeGeminiKey && activeGeminiKey.trim()) {
       try {
+        console.log('[AI Client] Initiating client direct Gemini fallback...');
         let imgData = null;
         if (imageBase64) {
           imgData = {
             base64: imageBase64.startsWith('data:') ? imageBase64.split(',')[1] : imageBase64,
             mimeType: 'image/jpeg',
           };
-        } else if (file) {
-          imgData = await fileToBase64(file);
+        } else if (optimizedFile) {
+          imgData = await fileToBase64(optimizedFile);
         } else if (imageUrl) {
           imgData = await imageUrlToBase64(imageUrl);
         }
@@ -252,11 +280,12 @@ export const aiService = {
           });
 
           if (directResult) {
+            console.log('[AI Client] Direct Gemini fallback succeeded!');
             return directResult;
           }
         }
       } catch (clientErr) {
-        console.error('[AI Service Direct Gemini Fallback Error]', clientErr);
+        console.error('[AI Client Direct Gemini Error]:', clientErr);
       }
     }
 

@@ -68,87 +68,125 @@ const resolveImageBase64 = async (req) => {
 
 // POST /api/ai/analyze-food
 // Analyzes food image using Google Gemini Flash or OpenAI Vision to calculate calories, macros, and serving grams
-router.post('/analyze-food', upload.single('image'), async (req, res) => {
-  try {
-    const imageData = await resolveImageBase64(req);
-    if (!imageData || !imageData.base64) {
-      return res.status(400).json({ error: 'No image provided for food analysis.' });
-    }
-
-    const geminiKey =
-      req.headers['x-gemini-key'] ||
-      req.body?.geminiKey ||
-      process.env.GEMINI_API_KEY ||
-      process.env.VITE_GEMINI_API_KEY;
-
-    const openaiKey =
-      req.headers['x-openai-key'] ||
-      req.body?.openaiKey ||
-      process.env.OPENAI_API_KEY;
-
-    // 1. Google Gemini Flash Vision (Recommended Free Tier: 1,500 free requests/day)
-    let geminiErrorMsg = null;
-    if (geminiKey && geminiKey.trim()) {
-      try {
-        const geminiResult = await analyzeWithGemini(imageData.base64, imageData.mimeType, geminiKey.trim());
-        if (geminiResult) {
-          return res.json({
-            success: true,
-            provider: 'gemini-flash',
-            data: geminiResult,
-          });
-        }
-      } catch (geminiErr) {
-        console.error('[AI Nutrition Gemini Error]', geminiErr.message);
-        geminiErrorMsg = geminiErr.message;
-        // If Gemini error is invalid key, inform client
-        if (geminiErr.message.includes('API_KEY_INVALID') || geminiErr.status === 400) {
-          return res.status(400).json({
-            success: false,
-            error: 'Invalid Google Gemini API Key. Please verify your free key from Google AI Studio.',
-            requiresKey: true,
-          });
-        }
+router.post(
+  '/analyze-food',
+  (req, res, next) => {
+    upload.single('image')(req, res, (err) => {
+      if (err) {
+        console.error('[AI Nutrition Multer Error]:', err.message);
+        return res.status(400).json({ error: `Image upload error: ${err.message}` });
       }
-    }
-
-    // 2. OpenAI GPT-4o-mini Vision Fallback
-    if (openaiKey && openaiKey.trim()) {
-      try {
-        const openaiResult = await analyzeWithOpenAI(imageData.base64, imageData.mimeType, openaiKey.trim());
-        if (openaiResult) {
-          return res.json({
-            success: true,
-            provider: 'gpt-4o-mini',
-            data: openaiResult,
-          });
-        }
-      } catch (openaiErr) {
-        console.error('[AI Nutrition OpenAI Error]', openaiErr.message);
-      }
-    }
-
-    // If a Gemini key was provided but models could not parse image
-    if (geminiKey && geminiKey.trim()) {
-      return res.status(500).json({
-        success: false,
-        requiresKey: false,
-        error: geminiErrorMsg || 'AI food recognition could not process this image. Please try another photo or enter nutrition values manually.',
-      });
-    }
-
-    // 3. If no API key configured yet, return prompt for user to connect free key
-    return res.status(200).json({
-      success: false,
-      requiresKey: true,
-      error: 'Google Gemini API key required. You can get a 100% free API key from Google AI Studio in 10 seconds (no credit card required).',
-      getFreeKeyUrl: 'https://aistudio.google.com/app/apikey',
+      next();
     });
-  } catch (err) {
-    console.error('[AI Route Server Error]', err);
-    return res.status(500).json({ error: err.message || 'Failed to analyze food image' });
+  },
+  async (req, res) => {
+    console.log('[AI Nutrition] === Incoming /api/ai/analyze-food Request ===');
+    try {
+      const imageData = await resolveImageBase64(req);
+      if (!imageData || !imageData.base64) {
+        console.warn('[AI Nutrition] No image data resolved from request.');
+        return res.status(400).json({ error: 'No image provided for food analysis.' });
+      }
+
+      console.log(
+        `[AI Nutrition] Image resolved: mime=${imageData.mimeType}, base64Length=${imageData.base64.length}`
+      );
+
+      const geminiKey =
+        req.headers['x-gemini-key'] ||
+        req.body?.geminiKey ||
+        process.env.GEMINI_API_KEY ||
+        process.env.VITE_GEMINI_API_KEY;
+
+      const keySource = req.headers['x-gemini-key']
+        ? 'x-gemini-key header'
+        : req.body?.geminiKey
+        ? 'req.body.geminiKey'
+        : process.env.GEMINI_API_KEY
+        ? 'process.env.GEMINI_API_KEY'
+        : process.env.VITE_GEMINI_API_KEY
+        ? 'process.env.VITE_GEMINI_API_KEY'
+        : 'NONE';
+
+      console.log(
+        `[AI Nutrition] Gemini Key status: ${geminiKey ? 'PRESENT' : 'NOT FOUND'} (source: ${keySource})`
+      );
+
+      const openaiKey =
+        req.headers['x-openai-key'] ||
+        req.body?.openaiKey ||
+        process.env.OPENAI_API_KEY;
+
+      // 1. Google Gemini Flash Vision (Recommended Free Tier: 1,500 free requests/day)
+      let geminiErrorMsg = null;
+      if (geminiKey && geminiKey.trim()) {
+        try {
+          console.log('[AI Nutrition] Starting Gemini analysis pipeline...');
+          const geminiResult = await analyzeWithGemini(imageData.base64, imageData.mimeType, geminiKey.trim());
+          if (geminiResult) {
+            console.log('[AI Nutrition] Gemini analysis complete:', geminiResult.food_name);
+            return res.json({
+              success: true,
+              provider: 'gemini-flash',
+              data: geminiResult,
+            });
+          }
+        } catch (geminiErr) {
+          console.error('[AI Nutrition Gemini Error]', geminiErr.message);
+          geminiErrorMsg = geminiErr.message;
+          // If Gemini error is invalid key, inform client
+          if (geminiErr.message.includes('API_KEY_INVALID') || geminiErr.status === 400) {
+            return res.status(400).json({
+              success: false,
+              error: 'Invalid Google Gemini API Key. Please verify your free key from Google AI Studio.',
+              requiresKey: true,
+            });
+          }
+        }
+      }
+
+      // 2. OpenAI GPT-4o-mini Vision Fallback
+      if (openaiKey && openaiKey.trim()) {
+        try {
+          console.log('[AI Nutrition] Falling back to OpenAI Vision...');
+          const openaiResult = await analyzeWithOpenAI(imageData.base64, imageData.mimeType, openaiKey.trim());
+          if (openaiResult) {
+            console.log('[AI Nutrition] OpenAI analysis complete:', openaiResult.food_name);
+            return res.json({
+              success: true,
+              provider: 'gpt-4o-mini',
+              data: openaiResult,
+            });
+          }
+        } catch (openaiErr) {
+          console.error('[AI Nutrition OpenAI Error]', openaiErr.message);
+        }
+      }
+
+      // If a Gemini key was provided but models could not parse image
+      if (geminiKey && geminiKey.trim()) {
+        console.warn('[AI Nutrition] Gemini key was present, but recognition failed without invalid key error.');
+        return res.status(500).json({
+          success: false,
+          requiresKey: false,
+          error: geminiErrorMsg || 'AI food recognition could not process this image. Please try another photo or enter nutrition values manually.',
+        });
+      }
+
+      // 3. If no API key configured yet, return prompt for user to connect free key
+      console.log('[AI Nutrition] No API key present. Prompting user to connect key.');
+      return res.status(200).json({
+        success: false,
+        requiresKey: true,
+        error: 'Google Gemini API key required. You can get a 100% free API key from Google AI Studio in 10 seconds (no credit card required).',
+        getFreeKeyUrl: 'https://aistudio.google.com/app/apikey',
+      });
+    } catch (err) {
+      console.error('[AI Nutrition Server Catch Error]:', err);
+      return res.status(500).json({ error: err.message || 'Failed to analyze food image' });
+    }
   }
-});
+);
 
 // Google Gemini Flash Vision caller
 async function analyzeWithGemini(base64Image, mimeType, apiKey) {
@@ -163,6 +201,7 @@ async function analyzeWithGemini(base64Image, mimeType, apiKey) {
 
   for (const model of models) {
     try {
+      console.log(`[AI Nutrition Gemini] Trying model: ${model}...`);
       const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
       const prompt = `You are a professional sports nutritionist and food identification AI.
@@ -208,7 +247,7 @@ Return strictly valid JSON matching this exact schema:
       };
 
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
+      const timeout = setTimeout(() => controller.abort(), 9000);
 
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -218,9 +257,11 @@ Return strictly valid JSON matching this exact schema:
       });
       clearTimeout(timeout);
 
+      console.log(`[AI Nutrition Gemini] Model ${model} returned HTTP ${res.status}`);
+
       if (!res.ok) {
         const errText = await res.text();
-        console.warn(`[Gemini ${model}] failed with status ${res.status}: ${errText}`);
+        console.warn(`[AI Nutrition Gemini] Model ${model} error body: ${errText.slice(0, 200)}`);
         if (errText.includes('API_KEY_INVALID') || errText.includes('API key not valid')) {
           const keyErr = new Error('API_KEY_INVALID: The provided Google Gemini API key is invalid.');
           keyErr.status = 400;
@@ -231,7 +272,10 @@ Return strictly valid JSON matching this exact schema:
 
       const json = await res.json();
       const rawText = json.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!rawText) continue;
+      if (!rawText) {
+        console.warn(`[AI Nutrition Gemini] Model ${model} returned empty candidates.`);
+        continue;
+      }
 
       const cleanJson = rawText
         .trim()
@@ -241,6 +285,7 @@ Return strictly valid JSON matching this exact schema:
         .trim();
 
       const parsed = JSON.parse(cleanJson);
+      console.log(`[AI Nutrition Gemini] Model ${model} successfully parsed food:`, parsed.food_name);
       return {
         food_name: parsed.food_name || 'Detected Food Entry',
         serving_size: parsed.serving_size || '1 serving (100g)',
@@ -252,7 +297,7 @@ Return strictly valid JSON matching this exact schema:
         confidence: Number(parsed.confidence) || 0.9,
       };
     } catch (e) {
-      console.warn(`[Gemini ${model}] exception:`, e.message);
+      console.warn(`[AI Nutrition Gemini] Model ${model} exception:`, e.message);
       if (e.message.includes('API_KEY_INVALID')) {
         throw e;
       }
