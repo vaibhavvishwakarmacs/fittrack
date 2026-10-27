@@ -13,15 +13,41 @@ export const AiKeyModal = ({ isOpen, onClose, onKeySaved }) => {
   const [openaiKey, setOpenaiKey] = useState(() => aiService.getOpenAIKey());
   const [showKey, setShowKey] = useState(false);
 
+  const handleClear = () => {
+    aiService.setGeminiKey('');
+    setGeminiKey('');
+    success('Device key cleared. Using server configuration.');
+    if (onKeySaved) {
+      onKeySaved('');
+    }
+    onClose();
+  };
+
   const handleSave = (e) => {
     e?.preventDefault();
     if (provider === 'gemini') {
-      if (!geminiKey.trim()) {
+      let clean = geminiKey.trim();
+      clean = clean.replace(/^(GEMINI_API_KEY|VITE_GEMINI_API_KEY)\s*=\s*/i, '');
+      clean = clean.replace(/^["']|["']$/g, '').trim();
+
+      if (!clean) {
         toastError('Please enter a valid Gemini API key.');
         return;
       }
-      aiService.setGeminiKey(geminiKey.trim());
+      if (clean.endsWith('...')) {
+        toastError('This key appears truncated (copied from a dashboard preview with ...). Please copy the entire key.');
+        return;
+      }
+      if (clean.length < 35) {
+        toastError(`Key is too short (${clean.length} characters). A full Gemini key is 39+ characters.`);
+        return;
+      }
+
+      aiService.setGeminiKey(clean);
       success('Google Gemini AI connected! 1,500 free daily nutrition scans enabled.');
+      if (onKeySaved) {
+        onKeySaved(clean);
+      }
     } else {
       if (!openaiKey.trim()) {
         toastError('Please enter a valid OpenAI API key.');
@@ -29,11 +55,11 @@ export const AiKeyModal = ({ isOpen, onClose, onKeySaved }) => {
       }
       aiService.setOpenAIKey(openaiKey.trim());
       success('OpenAI Vision connected successfully!');
+      if (onKeySaved) {
+        onKeySaved(openaiKey.trim());
+      }
     }
 
-    if (onKeySaved) {
-      onKeySaved(provider === 'gemini' ? geminiKey.trim() : openaiKey.trim());
-    }
     onClose();
   };
 
@@ -142,10 +168,21 @@ export const AiKeyModal = ({ isOpen, onClose, onKeySaved }) => {
           </div>
         )}
 
-        <div className="pt-2 flex justify-between items-center gap-3">
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
+        <div className="pt-2 flex justify-between items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <Button type="button" variant="ghost" onClick={onClose} size="sm">
+              Cancel
+            </Button>
+            {Boolean(aiService.getGeminiKey()) && (
+              <button
+                type="button"
+                onClick={handleClear}
+                className="text-xs text-rose-400 hover:text-rose-300 font-semibold px-2 py-1 underline transition-colors"
+              >
+                Clear Key
+              </button>
+            )}
+          </div>
           <Button
             type="submit"
             variant="primary"

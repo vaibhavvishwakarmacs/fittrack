@@ -12,6 +12,16 @@ const upload = multer({
   limits: { fileSize: 15 * 1024 * 1024 }, // 15MB max
 });
 
+// Helper: Sanitize API key (strips prefixes, quotes, whitespace, trailing ellipsis)
+function sanitizeApiKey(rawKey) {
+  if (!rawKey || typeof rawKey !== 'string') return '';
+  let key = rawKey.trim();
+  key = key.replace(/^(GEMINI_API_KEY|VITE_GEMINI_API_KEY)\s*=\s*/i, '');
+  key = key.replace(/^["']|["']$/g, '').trim();
+  key = key.replace(/\.{2,}$/, '').trim();
+  return key;
+}
+
 // Helper: Convert URL or file to base64 & MIME type
 const resolveImageBase64 = async (req) => {
   if (req.file && req.file.buffer) {
@@ -92,24 +102,36 @@ router.post(
         `[AI Nutrition] Image resolved: mime=${imageData.mimeType}, base64Length=${imageData.base64.length}`
       );
 
-      const geminiKey =
-        req.headers['x-gemini-key'] ||
-        req.body?.geminiKey ||
-        process.env.GEMINI_API_KEY ||
-        process.env.VITE_GEMINI_API_KEY;
+      const rawClientKey = req.headers['x-gemini-key'] || req.body?.geminiKey;
+      const rawEnvKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
 
-      const keySource = req.headers['x-gemini-key']
-        ? 'x-gemini-key header'
-        : req.body?.geminiKey
-        ? 'req.body.geminiKey'
-        : process.env.GEMINI_API_KEY
-        ? 'process.env.GEMINI_API_KEY'
-        : process.env.VITE_GEMINI_API_KEY
-        ? 'process.env.VITE_GEMINI_API_KEY'
-        : 'NONE';
+      const clientKey = sanitizeApiKey(rawClientKey);
+      const envKey = sanitizeApiKey(rawEnvKey);
+
+      // Build prioritized list of keys to try:
+      // 1. Client key (if validly formatted and not truncated)
+      // 2. Server environment key (as fallback)
+      const keysToTry = [];
+      if (clientKey && clientKey.length >= 35 && !clientKey.endsWith('...')) {
+        keysToTry.push({ key: clientKey, source: 'client header/body' });
+      } else if (clientKey) {
+        console.warn(
+          `[AI Nutrition] Discarding client key because it appears truncated or invalid (len: ${clientKey.length}): ${clientKey.slice(0, 10)}...`
+        );
+      }
+
+      if (envKey && (!clientKey || clientKey !== envKey)) {
+        if (envKey.length >= 35 && !envKey.endsWith('...')) {
+          keysToTry.push({ key: envKey, source: 'process.env.GEMINI_API_KEY' });
+        } else {
+          console.warn(`[AI Nutrition] Server env key also appears invalid/truncated: len ${envKey.length}`);
+        }
+      }
 
       console.log(
-        `[AI Nutrition] Gemini Key status: ${geminiKey ? 'PRESENT' : 'NOT FOUND'} (source: ${keySource})`
+        `[AI Nutrition] Usable Gemini keys: ${keysToTry.length} (${keysToTry
+          .map((k) => `${k.source} [len: ${k.key.length}, ${k.key.slice(0, 6)}...${k.key.slice(-4)}]`)
+          .join(', ') || 'NONE'})`
       );
 
       const openaiKey =
@@ -118,31 +140,43 @@ router.post(
         process.env.OPENAI_API_KEY;
 
       // 1. Google Gemini Flash Vision (Recommended Free Tier: 1,500 free requests/day)
+      let geminiResult = null;
       let geminiErrorMsg = null;
-      if (geminiKey && geminiKey.trim()) {
+      let isInvalidKeyError = false;
+
+      for (const { key, source } of keysToTry) {
         try {
-          console.log('[AI Nutrition] Starting Gemini analysis pipeline...');
-          const geminiResult = await analyzeWithGemini(imageData.base64, imageData.mimeType, geminiKey.trim());
-          if (geminiResult) {
-            console.log('[AI Nutrition] Gemini analysis complete:', geminiResult.food_name);
-            return res.json({
-              success: true,
-              provider: 'gemini-flash',
-              data: geminiResult,
-            });
+          console.log(`[AI Nutrition] Trying Gemini with key from ${source}...`);
+          const result = await analyzeWithGemini(imageData.base64, imageData.mimeType, key);
+          if (result) {
+            geminiResult = result;
+            console.log(`[AI Nutrition] Gemini analysis succeeded with key from ${source}:`, result.food_name);
+            break;
           }
         } catch (geminiErr) {
-          console.error('[AI Nutrition Gemini Error]', geminiErr.message);
+          console.error(`[AI Nutrition] Gemini failed with key from ${source}:`, geminiErr.message);
           geminiErrorMsg = geminiErr.message;
-          // If Gemini error is invalid key, inform client
-          if (geminiErr.message.includes('API_KEY_INVALID') || geminiErr.status === 400) {
-            return res.status(400).json({
-              success: false,
-              error: 'Invalid Google Gemini API Key. Please verify your free key from Google AI Studio.',
-              requiresKey: true,
-            });
+          if (geminiErr.message.includes('API_KEY_INVALID') || geminiErr.status === 400 || geminiErr.status === 401) {
+            isInvalidKeyError = true;
           }
         }
+      }
+
+      if (geminiResult) {
+        return res.json({
+          success: true,
+          provider: 'gemini-flash',
+          data: geminiResult,
+        });
+      }
+
+      // If we had a key but it was rejected by Google as invalid:
+      if (keysToTry.length > 0 && isInvalidKeyError && !openaiKey) {
+        return res.status(400).json({
+          success: false,
+          error: 'Google Gemini API key was rejected as invalid or truncated. Please paste your full key in Settings.',
+          requiresKey: true,
+        });
       }
 
       // 2. OpenAI GPT-4o-mini Vision Fallback

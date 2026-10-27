@@ -152,19 +152,30 @@ Return strictly valid JSON matching this exact schema:
 
 export const aiService = {
   getGeminiKey() {
-    return (
+    let key =
       localStorage.getItem('fittrack_gemini_key') ||
       import.meta.env.VITE_GEMINI_API_KEY ||
-      ''
-    );
+      '';
+    if (key) {
+      key = key.trim().replace(/^(GEMINI_API_KEY|VITE_GEMINI_API_KEY)\s*=\s*/i, '').replace(/^["']|["']$/g, '').trim();
+      // If it ends with ellipsis or is too short (< 35 chars), it is truncated/invalid
+      if (key.endsWith('...') || (key.length > 0 && key.length < 35)) {
+        console.warn('[AI Client] Discarding truncated Gemini key:', key.slice(0, 10));
+        return '';
+      }
+    }
+    return key;
   },
 
   setGeminiKey(key) {
-    if (key && key.trim()) {
-      localStorage.setItem('fittrack_gemini_key', key.trim());
-    } else {
-      localStorage.removeItem('fittrack_gemini_key');
+    if (key && typeof key === 'string') {
+      let clean = key.trim().replace(/^(GEMINI_API_KEY|VITE_GEMINI_API_KEY)\s*=\s*/i, '').replace(/^["']|["']$/g, '').trim();
+      if (clean) {
+        localStorage.setItem('fittrack_gemini_key', clean);
+        return;
+      }
     }
+    localStorage.removeItem('fittrack_gemini_key');
   },
 
   getOpenAIKey() {
