@@ -86,19 +86,21 @@ router.post('/analyze-food', upload.single('image'), async (req, res) => {
       req.body?.openaiKey ||
       process.env.OPENAI_API_KEY;
 
-    // 1. Google Gemini 1.5 Flash Vision (Recommended Free Tier: 1,500 free requests/day)
+    // 1. Google Gemini Flash Vision (Recommended Free Tier: 1,500 free requests/day)
+    let geminiErrorMsg = null;
     if (geminiKey && geminiKey.trim()) {
       try {
         const geminiResult = await analyzeWithGemini(imageData.base64, imageData.mimeType, geminiKey.trim());
         if (geminiResult) {
           return res.json({
             success: true,
-            provider: 'gemini-1.5-flash',
+            provider: 'gemini-flash',
             data: geminiResult,
           });
         }
       } catch (geminiErr) {
         console.error('[AI Nutrition Gemini Error]', geminiErr.message);
+        geminiErrorMsg = geminiErr.message;
         // If Gemini error is invalid key, inform client
         if (geminiErr.message.includes('API_KEY_INVALID') || geminiErr.status === 400) {
           return res.status(400).json({
@@ -126,6 +128,15 @@ router.post('/analyze-food', upload.single('image'), async (req, res) => {
       }
     }
 
+    // If a Gemini key was provided but models could not parse image
+    if (geminiKey && geminiKey.trim()) {
+      return res.status(500).json({
+        success: false,
+        requiresKey: false,
+        error: geminiErrorMsg || 'AI food recognition could not process this image. Please try another photo or enter nutrition values manually.',
+      });
+    }
+
     // 3. If no API key configured yet, return prompt for user to connect free key
     return res.status(200).json({
       success: false,
@@ -141,13 +152,13 @@ router.post('/analyze-food', upload.single('image'), async (req, res) => {
 
 // Google Gemini Flash Vision caller
 async function analyzeWithGemini(base64Image, mimeType, apiKey) {
-  // Use latest flash models (gemini-flash-latest, gemini-3.8-flash) with legacy fallbacks
+  // Use current supported fast flash models
   const models = [
-    'gemini-flash-latest',
+    'gemini-3.5-flash-lite',
+    'gemini-3.5-flash',
+    'gemini-3.6-flash',
     'gemini-3.8-flash',
-    'gemini-2.5-flash-lite',
-    'gemini-1.5-flash',
-    'gemini-2.0-flash',
+    'gemini-flash-latest',
   ];
 
   for (const model of models) {
@@ -196,11 +207,16 @@ Return strictly valid JSON matching this exact schema:
         },
       };
 
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
 
       if (!res.ok) {
         const errText = await res.text();
@@ -217,7 +233,14 @@ Return strictly valid JSON matching this exact schema:
       const rawText = json.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!rawText) continue;
 
-      const parsed = JSON.parse(rawText.trim());
+      const cleanJson = rawText
+        .trim()
+        .replace(/^```json\s*/i, '')
+        .replace(/^```\s*/i, '')
+        .replace(/```$/i, '')
+        .trim();
+
+      const parsed = JSON.parse(cleanJson);
       return {
         food_name: parsed.food_name || 'Detected Food Entry',
         serving_size: parsed.serving_size || '1 serving (100g)',

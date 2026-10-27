@@ -351,7 +351,7 @@ export const SettingsPage = () => {
                   AI Nutrition Vision Agent
                 </h2>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-lime/20 text-lime border border-lime/30">
-                  Google Gemini 1.5 Flash
+                  Google Gemini Flash
                 </span>
               </div>
               <p className="text-xs text-slate-300 mt-0.5">

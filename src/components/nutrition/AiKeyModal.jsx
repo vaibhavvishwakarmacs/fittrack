@@ -4,13 +4,14 @@ import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { useToast } from '../../contexts/ToastContext';
 import { aiService } from '../../services/aiService';
-import { Sparkles, Key, ExternalLink, Check, ShieldCheck, Zap } from 'lucide-react';
+import { Sparkles, Key, ExternalLink, Check, ShieldCheck, Zap, Eye, EyeOff } from 'lucide-react';
 
 export const AiKeyModal = ({ isOpen, onClose, onKeySaved }) => {
   const { success, error: toastError } = useToast();
   const [geminiKey, setGeminiKey] = useState(() => aiService.getGeminiKey());
   const [provider, setProvider] = useState('gemini'); // 'gemini' | 'openai'
   const [openaiKey, setOpenaiKey] = useState(() => aiService.getOpenAIKey());
+  const [showKey, setShowKey] = useState(false);
 
   const handleSave = (e) => {
     e?.preventDefault();
@@ -52,7 +53,7 @@ export const AiKeyModal = ({ isOpen, onClose, onKeySaved }) => {
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-white">Google Gemini 1.5 Flash (100% Free)</h4>
+              <h4 className="text-sm font-bold text-white">Google Gemini Flash (100% Free)</h4>
               <p className="text-[11px] text-slate-300">
                 1,500 free food image scans per day with zero cost. No credit card required.
               </p>
@@ -101,24 +102,42 @@ export const AiKeyModal = ({ isOpen, onClose, onKeySaved }) => {
           <div>
             <Input
               label="Google Gemini API Key"
-              type="password"
-              placeholder="AIzaSy..."
+              type={showKey ? 'text' : 'password'}
+              placeholder="Paste your key (AQ... or AIza...)"
               value={geminiKey}
               onChange={(e) => setGeminiKey(e.target.value)}
               helperText="Paste your key from Google AI Studio. Stored securely on your device."
               leftIcon={<Key className="w-4 h-4 text-lime" />}
+              rightIcon={
+                <button
+                  type="button"
+                  onClick={() => setShowKey(!showKey)}
+                  className="text-slate-400 hover:text-white transition-colors p-1"
+                >
+                  {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              }
             />
           </div>
         ) : (
           <div>
             <Input
               label="OpenAI API Key"
-              type="password"
+              type={showKey ? 'text' : 'password'}
               placeholder="sk-proj-..."
               value={openaiKey}
               onChange={(e) => setOpenaiKey(e.target.value)}
               helperText="Your OpenAI key with GPT-4o-mini vision permissions."
               leftIcon={<Key className="w-4 h-4 text-sky-400" />}
+              rightIcon={
+                <button
+                  type="button"
+                  onClick={() => setShowKey(!showKey)}
+                  className="text-slate-400 hover:text-white transition-colors p-1"
+                >
+                  {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              }
             />
           </div>
         )}
