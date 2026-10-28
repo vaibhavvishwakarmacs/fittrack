@@ -34,7 +34,7 @@ export const imageUrlToBase64 = async (url) => {
 };
 
 // Direct client-side Gemini fallback
-export const callGeminiDirect = async ({ base64, mimeType, apiKey }) => {
+export const callGeminiDirect = async ({ base64, mimeType, apiKey, userNotes = '' }) => {
   const models = [
     'gemini-3.5-flash-lite',
     'gemini-3.5-flash',
@@ -43,15 +43,27 @@ export const callGeminiDirect = async ({ base64, mimeType, apiKey }) => {
     'gemini-flash-latest',
   ];
 
-  const prompt = `You are a professional sports nutritionist and food identification AI.
+  const userNotesDirective = userNotes
+    ? `\n\nCRITICAL - USER-PROVIDED MEAL DETAILS & CONTEXT:
+The user explicitly provided these notes/details about the meal:
+"${userNotes}"
+
+MANDATORY INSTRUCTIONS FOR USER NOTES:
+1. Heavily prioritize and strictly integrate the user's notes into food identification, portion sizing, ingredients, and cooking/prep methods.
+2. If the user mentions cooking fats or oils (e.g. olive oil, butter, ghee, coconut oil), calculate and include those extra calories and fat grams (e.g. 1 tbsp olive oil adds ~120 kcal, 14g fat).
+3. If the user specifies portion weights or quantities (e.g. "200g chicken breast", "2 rotis/chapatis", "2 scoops whey", "1.5 cups rice"), compute the nutrition values directly based on these stated quantities rather than a rough visual guess.
+4. If the user notes hidden ingredients, milk type (e.g. whole milk, oat milk), or brand names, adjust the macros accurately for those items.
+5. In the "description" field, provide a comprehensive, 1-2 sentence description explaining the dish and explicitly stating how the user's custom details and ingredients were factored into the macros.`
+    : `\n\nProvide an accurate, detailed breakdown based on visual cues and standard sports nutrition portion sizes. In the "description" field, give a helpful 1-sentence description of the dish detected.`;
+
+  const prompt = `You are an expert sports nutritionist, registered dietitian, and food recognition AI.
 Analyze this food/meal/snack photo carefully.
-Identify the food or dish name, estimate the portion / serving size with weight in grams, total calories, and macronutrients (protein, carbs, and fat in grams).
+Identify the food or dish name, estimate the portion / serving size with weight in grams, total calories, and macronutrients (protein, carbs, and fat in grams).${userNotesDirective}
 
 Rules:
 1. If the photo shows packaged food with a label or brand (e.g. Biskrem, Oreo, Snickers, protein bar, yogurt), read the exact brand and nutrition facts or use standard values for that exact brand.
-2. If it shows a cooked or whole meal (e.g. chicken breast with rice, eggs with toast, oatmeal), estimate the serving size with weight in grams (e.g. "1 plate (350g)" or "1 bowl (200g)").
-3. Estimate realistic, accurate fitness values for calories and macros.
-4. Keep the food name concise and descriptive.
+2. If it shows a cooked or whole meal (e.g. chicken breast with rice, eggs with toast, oatmeal), estimate realistic, accurate fitness values for calories and macros.
+3. Keep the food name concise and descriptive.
 
 Return strictly valid JSON matching this exact schema:
 {
@@ -61,7 +73,7 @@ Return strictly valid JSON matching this exact schema:
   "protein_g": 25,
   "carbs_g": 50,
   "fat_g": 14,
-  "description": "Short 1-sentence description of the food detected",
+  "description": "Detailed 1-2 sentence description explaining the food and how ingredients/notes were factored in",
   "confidence": 0.95
 }`;
 
@@ -140,6 +152,7 @@ Return strictly valid JSON matching this exact schema:
           fat_g: Number(parsed.fat_g) || 0,
           description: parsed.description || '',
           confidence: Number(parsed.confidence) || 0.9,
+          notes_factored: Boolean(userNotes),
         },
       };
     } catch (err) {
@@ -194,7 +207,7 @@ export const aiService = {
     }
   },
 
-  async analyzeFoodImage({ file, imageUrl, imageBase64, customKey }) {
+  async analyzeFoodImage({ file, imageUrl, imageBase64, customKey, userNotes = '' }) {
     const token = getAuthToken();
     const activeGeminiKey = customKey || this.getGeminiKey();
     const activeOpenAIKey = this.getOpenAIKey();
@@ -211,7 +224,7 @@ export const aiService = {
       }
     }
 
-    console.log('[AI Client] analyzeFoodImage called, hasGeminiKey:', Boolean(activeGeminiKey));
+    console.log('[AI Client] analyzeFoodImage called, hasGeminiKey:', Boolean(activeGeminiKey), 'userNotesLength:', userNotes?.length || 0);
 
     // 1. First attempt: Use Backend API
     try {
@@ -225,15 +238,18 @@ export const aiService = {
         const formData = new FormData();
         formData.append('image', optimizedFile);
         if (activeGeminiKey) formData.append('geminiKey', activeGeminiKey);
+        if (userNotes && userNotes.trim()) {
+          formData.append('userNotes', userNotes.trim());
+        }
 
-        console.log('[AI Client] Sending multipart image to backend...');
+        console.log('[AI Client] Sending multipart image with notes to backend...');
         response = await fetch(`${API_BASE_URL}/ai/analyze-food`, {
           method: 'POST',
           headers,
           body: formData,
         });
       } else {
-        console.log('[AI Client] Sending JSON image URL/base64 to backend...');
+        console.log('[AI Client] Sending JSON image URL/base64 with notes to backend...');
         response = await fetch(`${API_BASE_URL}/ai/analyze-food`, {
           method: 'POST',
           headers: {
@@ -244,6 +260,7 @@ export const aiService = {
             imageUrl,
             imageBase64,
             geminiKey: activeGeminiKey,
+            userNotes: userNotes && userNotes.trim() ? userNotes.trim() : undefined,
           }),
         });
       }
@@ -270,7 +287,7 @@ export const aiService = {
     // 2. Client-side direct Gemini fallback (bypasses serverless limits / cold-starts)
     if (activeGeminiKey && activeGeminiKey.trim()) {
       try {
-        console.log('[AI Client] Initiating client direct Gemini fallback...');
+        console.log('[AI Client] Initiating client direct Gemini fallback with user notes...');
         let imgData = null;
         if (imageBase64) {
           imgData = {
@@ -288,6 +305,7 @@ export const aiService = {
             base64: imgData.base64,
             mimeType: imgData.mimeType,
             apiKey: activeGeminiKey.trim(),
+            userNotes: userNotes && userNotes.trim() ? userNotes.trim() : '',
           });
 
           if (directResult) {

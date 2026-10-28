@@ -102,6 +102,11 @@ router.post(
         `[AI Nutrition] Image resolved: mime=${imageData.mimeType}, base64Length=${imageData.base64.length}`
       );
 
+      const userNotes = (req.body?.userNotes || req.body?.notes || req.body?.details || req.body?.context || req.query?.userNotes || '').trim();
+      if (userNotes) {
+        console.log(`[AI Nutrition] User provided notes/context (${userNotes.length} chars): "${userNotes}"`);
+      }
+
       const rawClientKey = req.headers['x-gemini-key'] || req.body?.geminiKey;
       const rawEnvKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
 
@@ -147,7 +152,7 @@ router.post(
       for (const { key, source } of keysToTry) {
         try {
           console.log(`[AI Nutrition] Trying Gemini with key from ${source}...`);
-          const result = await analyzeWithGemini(imageData.base64, imageData.mimeType, key);
+          const result = await analyzeWithGemini(imageData.base64, imageData.mimeType, key, userNotes);
           if (result) {
             geminiResult = result;
             console.log(`[AI Nutrition] Gemini analysis succeeded with key from ${source}:`, result.food_name);
@@ -183,7 +188,7 @@ router.post(
       if (openaiKey && openaiKey.trim()) {
         try {
           console.log('[AI Nutrition] Falling back to OpenAI Vision...');
-          const openaiResult = await analyzeWithOpenAI(imageData.base64, imageData.mimeType, openaiKey.trim());
+          const openaiResult = await analyzeWithOpenAI(imageData.base64, imageData.mimeType, openaiKey.trim(), userNotes);
           if (openaiResult) {
             console.log('[AI Nutrition] OpenAI analysis complete:', openaiResult.food_name);
             return res.json({
@@ -197,8 +202,8 @@ router.post(
         }
       }
 
-      // If a Gemini key was provided but models could not parse image
-      if (geminiKey && geminiKey.trim()) {
+      // If keys were tried but models could not parse image
+      if (keysToTry.length > 0) {
         console.warn('[AI Nutrition] Gemini key was present, but recognition failed without invalid key error.');
         return res.status(500).json({
           success: false,
@@ -223,7 +228,7 @@ router.post(
 );
 
 // Google Gemini Flash Vision caller
-async function analyzeWithGemini(base64Image, mimeType, apiKey) {
+async function analyzeWithGemini(base64Image, mimeType, apiKey, userNotes = '') {
   // Use current supported fast flash models
   const models = [
     'gemini-3.5-flash-lite',
@@ -233,20 +238,32 @@ async function analyzeWithGemini(base64Image, mimeType, apiKey) {
     'gemini-flash-latest',
   ];
 
+  const userNotesDirective = userNotes
+    ? `\n\nCRITICAL - USER-PROVIDED MEAL DETAILS & CONTEXT:
+The user explicitly provided these notes/details about the meal:
+"${userNotes}"
+
+MANDATORY INSTRUCTIONS FOR USER NOTES:
+1. Heavily prioritize and strictly integrate the user's notes into food identification, portion sizing, ingredients, and cooking/prep methods.
+2. If the user mentions cooking fats or oils (e.g. olive oil, butter, ghee, coconut oil), calculate and include those extra calories and fat grams (e.g. 1 tbsp olive oil adds ~120 kcal, 14g fat).
+3. If the user specifies portion weights or quantities (e.g. "200g chicken breast", "2 rotis/chapatis", "2 scoops whey", "1.5 cups rice"), compute the nutrition values directly based on these stated quantities rather than a rough visual guess.
+4. If the user notes hidden ingredients, milk type (e.g. whole milk, oat milk), or brand names, adjust the macros accurately for those items.
+5. In the "description" field, provide a comprehensive, 1-2 sentence description explaining the dish and explicitly stating how the user's custom details and ingredients were factored into the macros.`
+    : `\n\nProvide an accurate, detailed breakdown based on visual cues and standard sports nutrition portion sizes. In the "description" field, give a helpful 1-sentence description of the dish detected.`;
+
   for (const model of models) {
     try {
       console.log(`[AI Nutrition Gemini] Trying model: ${model}...`);
       const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-      const prompt = `You are a professional sports nutritionist and food identification AI.
+      const prompt = `You are an expert sports nutritionist, registered dietitian, and food recognition AI.
 Analyze this food/meal/snack photo carefully.
-Identify the food or dish name, estimate the portion / serving size with weight in grams, total calories, and macronutrients (protein, carbs, and fat in grams).
+Identify the food or dish name, estimate the portion / serving size with exact weight in grams, total calories, and macronutrients (protein, carbs, and fat in grams).${userNotesDirective}
 
 Rules:
 1. If the photo shows packaged food with a label or brand (e.g. Biskrem, Oreo, Snickers, protein bar, yogurt), read the exact brand and nutrition facts or use standard values for that exact brand.
-2. If it shows a cooked or whole meal (e.g. chicken breast with rice, eggs with toast, oatmeal), estimate the serving size with weight in grams (e.g. "1 plate (350g)" or "1 bowl (200g)").
-3. Estimate realistic, accurate fitness values for calories and macros.
-4. Keep the food name concise and descriptive.
+2. If it shows a cooked or whole meal (e.g. chicken breast with rice, eggs with toast, oatmeal), estimate realistic, accurate fitness values for calories and macros.
+3. Keep the food name concise and descriptive.
 
 Return strictly valid JSON matching this exact schema:
 {
@@ -256,7 +273,7 @@ Return strictly valid JSON matching this exact schema:
   "protein_g": 25,
   "carbs_g": 50,
   "fat_g": 14,
-  "description": "Short 1-sentence description of the food detected",
+  "description": "Detailed 1-2 sentence description explaining the meal and how ingredients/notes were factored in",
   "confidence": 0.95
 }`;
 
@@ -329,6 +346,7 @@ Return strictly valid JSON matching this exact schema:
         fat_g: Number(parsed.fat_g) || 0,
         description: parsed.description || '',
         confidence: Number(parsed.confidence) || 0.9,
+        notes_factored: Boolean(userNotes),
       };
     } catch (e) {
       console.warn(`[AI Nutrition Gemini] Model ${model} exception:`, e.message);
@@ -342,12 +360,25 @@ Return strictly valid JSON matching this exact schema:
 }
 
 // OpenAI GPT-4o-mini Vision caller
-async function analyzeWithOpenAI(base64Image, mimeType, apiKey) {
+async function analyzeWithOpenAI(base64Image, mimeType, apiKey, userNotes = '') {
   const endpoint = 'https://api.openai.com/v1/chat/completions';
 
-  const prompt = `You are a professional sports nutritionist and food identification AI.
+  const userNotesDirective = userNotes
+    ? `\n\nCRITICAL - USER-PROVIDED MEAL DETAILS & CONTEXT:
+The user explicitly provided these notes/details about the meal:
+"${userNotes}"
+
+MANDATORY INSTRUCTIONS FOR USER NOTES:
+1. Heavily prioritize and strictly integrate the user's notes into food identification, portion sizing, ingredients, and cooking/prep methods.
+2. If the user mentions cooking fats or oils (e.g. olive oil, butter, ghee, coconut oil), calculate and include those extra calories and fat grams (e.g. 1 tbsp olive oil adds ~120 kcal, 14g fat).
+3. If the user specifies portion weights or quantities (e.g. "200g chicken breast", "2 rotis/chapatis", "2 scoops whey", "1.5 cups rice"), compute the nutrition values directly based on these stated quantities rather than a rough visual guess.
+4. If the user notes hidden ingredients, milk type (e.g. whole milk, oat milk), or brand names, adjust the macros accurately for those items.
+5. In the "description" field, provide a comprehensive, 1-2 sentence description explaining the dish and explicitly stating how the user's custom details and ingredients were factored into the macros.`
+    : `\n\nProvide an accurate, detailed breakdown based on visual cues and standard sports nutrition portion sizes. In the "description" field, give a helpful 1-sentence description of the dish detected.`;
+
+  const prompt = `You are an expert sports nutritionist, registered dietitian, and food recognition AI.
 Analyze this food/meal/snack photo carefully.
-Identify the food or dish name, estimate the portion/serving size with weight in grams, total calories, and macronutrients (protein, carbs, and fat in grams).
+Identify the food or dish name, estimate the portion/serving size with weight in grams, total calories, and macronutrients (protein, carbs, and fat in grams).${userNotesDirective}
 
 Return strictly a valid JSON object matching:
 {
@@ -357,7 +388,7 @@ Return strictly a valid JSON object matching:
   "protein_g": 25,
   "carbs_g": 50,
   "fat_g": 14,
-  "description": "Short 1-sentence description of the food detected",
+  "description": "Detailed 1-2 sentence description explaining the meal and how ingredients/notes were factored in",
   "confidence": 0.95
 }`;
 
@@ -411,6 +442,7 @@ Return strictly a valid JSON object matching:
     fat_g: Number(parsed.fat_g) || 0,
     description: parsed.description || '',
     confidence: Number(parsed.confidence) || 0.9,
+    notes_factored: Boolean(userNotes),
   };
 }
 

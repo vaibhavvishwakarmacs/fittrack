@@ -20,6 +20,8 @@ import {
   RotateCcw,
   AlertCircle,
   Scan,
+  FileText,
+  RefreshCw,
 } from 'lucide-react';
 import { api } from '../../lib/api';
 import { ClickableImage } from '../common/ImageViewerModal';
@@ -58,6 +60,9 @@ export const FoodLoggerModal = ({
   const [carbs, setCarbs] = useState('');
   const [fat, setFat] = useState('');
   const [foodPhotoUrl, setFoodPhotoUrl] = useState('');
+  const [notes, setNotes] = useState('');
+  const [selectedFileForAi, setSelectedFileForAi] = useState(null);
+  const [localImagePreview, setLocalImagePreview] = useState(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -80,6 +85,9 @@ export const FoodLoggerModal = ({
       setCarbs(initialFood.carbs_g ?? initialFood.carbsG ?? '');
       setFat(initialFood.fat_g ?? initialFood.fatG ?? '');
       setFoodPhotoUrl(initialFood.photo_url || initialFood.photoUrl || '');
+      setNotes(initialFood.notes || initialFood.description || '');
+      setSelectedFileForAi(null);
+      setLocalImagePreview(null);
       setAiResult(null);
       setAiError(null);
     } else {
@@ -92,6 +100,9 @@ export const FoodLoggerModal = ({
       setCarbs('');
       setFat('');
       setFoodPhotoUrl('');
+      setNotes('');
+      setSelectedFileForAi(null);
+      setLocalImagePreview(null);
       setAiResult(null);
       setAiError(null);
     }
@@ -107,10 +118,11 @@ export const FoodLoggerModal = ({
     setFat(preset.f);
   };
 
-  // Run AI food recognition & calorie/macro computation
-  const analyzeFoodWithAi = async ({ file, imageUrl, customKey } = {}) => {
-    const targetFile = file || (pendingFileForAi instanceof File ? pendingFileForAi : null);
+  // Run AI food recognition & calorie/macro computation with user notes factored in
+  const analyzeFoodWithAi = async ({ file, imageUrl, customKey, userNotes } = {}) => {
+    const targetFile = file || selectedFileForAi || (pendingFileForAi instanceof File ? pendingFileForAi : null);
     const targetUrl = imageUrl || (typeof pendingFileForAi === 'string' ? pendingFileForAi : foodPhotoUrl);
+    const activeNotes = (userNotes !== undefined ? userNotes : notes) || '';
 
     if (!targetFile && !targetUrl) {
       toastError('Please select or upload a food photo first.');
@@ -125,6 +137,7 @@ export const FoodLoggerModal = ({
         file: targetFile,
         imageUrl: targetFile ? undefined : targetUrl,
         customKey,
+        userNotes: activeNotes,
       });
 
       if (res?.requiresKey) {
@@ -167,11 +180,20 @@ export const FoodLoggerModal = ({
     const rawFile = e.target.files?.[0];
     if (!rawFile) return;
 
+    // Set local preview immediately for rapid visual confirmation
+    try {
+      const previewUrl = URL.createObjectURL(rawFile);
+      setLocalImagePreview(previewUrl);
+    } catch {
+      // ignore preview error
+    }
+
     // Compress photo on mobile device to ensure fast upload and stay within limits
     const file = await compressImage(rawFile, 1200, 0.8);
+    setSelectedFileForAi(file);
 
-    // 1. Kick off AI Nutrition Vision Scan immediately!
-    analyzeFoodWithAi({ file });
+    // 1. Kick off AI Nutrition Vision Scan immediately with existing user notes!
+    analyzeFoodWithAi({ file, userNotes: notes });
 
     // 2. Simultaneously upload to Cloudinary GYM food folder
     setIsUploadingPhoto(true);
@@ -214,6 +236,7 @@ export const FoodLoggerModal = ({
         carbsG: Number(carbs) || 0,
         fatG: Number(fat) || 0,
         photoUrl: foodPhotoUrl || null,
+        notes: notes.trim(),
       };
 
       let result;
@@ -266,7 +289,7 @@ export const FoodLoggerModal = ({
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400">
-                  Upload any meal or packaged snack to auto-fill calories &amp; macros
+                  Upload meal photo + add context notes for ultra-accurate macros
                 </p>
               </div>
             </div>
@@ -281,6 +304,64 @@ export const FoodLoggerModal = ({
             </button>
           </div>
 
+          {/* Context Notes for AI (Optional) */}
+          <div className="space-y-1.5 mb-3">
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5 text-lime" />
+                <span>Meal Details &amp; Notes for AI (Optional)</span>
+              </label>
+              <span className="text-[10px] text-slate-400 font-mono">
+                Oils, portions, weights
+              </span>
+            </div>
+            <div className="relative">
+              <input
+                type="text"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder='e.g., "Cooked in 1 tbsp olive oil, 2 rotis with 200g chicken", "2 scoops whey in 250ml whole milk"'
+                className="w-full bg-dark-950/80 border border-white/10 focus:border-lime rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 outline-none transition-colors pr-8"
+              />
+              {notes && (
+                <button
+                  type="button"
+                  onClick={() => setNotes('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-slate-400 hover:text-white"
+                  title="Clear notes"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
+            {/* Quick suggestion chips */}
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-0.5">
+              <span className="text-[10px] text-slate-500 font-semibold shrink-0">Quick tap:</span>
+              {[
+                '+ 1 tbsp Olive Oil',
+                '+ 2 Rotis',
+                '+ 200g Chicken',
+                '+ 2 Scoops Whey',
+                '+ Cooked in Ghee',
+                '+ Homemade / Low Oil',
+                '+ Zero Sugar',
+              ].map((chip) => (
+                <button
+                  key={chip}
+                  type="button"
+                  onClick={() => {
+                    const clean = chip.replace(/^\+\s*/, '');
+                    setNotes((prev) => (prev ? `${prev}, ${clean}` : clean));
+                  }}
+                  className="shrink-0 text-[10px] font-medium px-2 py-0.5 rounded-lg bg-white/5 hover:bg-lime/20 border border-white/10 hover:border-lime/40 text-slate-300 hover:text-lime transition-all active:scale-95"
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* AI State: Analyzing */}
           {isAnalyzingAi && (
             <div className="p-4 rounded-xl bg-dark-950/90 border border-lime/40 flex flex-col items-center justify-center gap-2.5 text-center py-5 animate-pulse">
@@ -289,9 +370,9 @@ export const FoodLoggerModal = ({
                 <Sparkles className="w-3.5 h-3.5 text-amber-300 absolute -top-1 -right-1" />
               </div>
               <div>
-                <p className="text-xs font-bold text-white">AI Vision Scanning Meal...</p>
+                <p className="text-xs font-bold text-white">AI Vision Scanning Meal &amp; Factoring Notes...</p>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Detecting food item, portion weight (grams), calories &amp; macronutrients
+                  Detecting food items, adjusting portions for your notes, and computing precise macros
                 </p>
               </div>
             </div>
@@ -305,29 +386,58 @@ export const FoodLoggerModal = ({
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>AI Recognized &amp; Auto-Filled</span>
                 </span>
-                <label className="text-[10px] font-bold text-slate-400 hover:text-white cursor-pointer transition-colors underline">
-                  Scan different photo
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handlePhotoChange}
-                    disabled={isUploadingPhoto || isAnalyzingAi}
-                    className="hidden"
-                  />
-                </label>
+                <div className="flex items-center gap-2">
+                  <label className="text-[10px] font-bold text-slate-400 hover:text-white cursor-pointer transition-colors underline">
+                    Change photo
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoChange}
+                      disabled={isUploadingPhoto || isAnalyzingAi}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
               </div>
 
-              <div>
-                <p className="text-sm font-black text-white">{aiResult.food_name}</p>
-                <p className="text-xs text-lime font-medium mt-0.5">
-                  Serving: {aiResult.serving_size}
-                </p>
-                {aiResult.description && (
-                  <p className="text-[11px] text-slate-300 mt-1 italic">
+              <div className="flex items-start gap-3">
+                {(localImagePreview || foodPhotoUrl) && (
+                  <ClickableImage
+                    src={localImagePreview || foodPhotoUrl}
+                    alt={aiResult.food_name}
+                    title={aiResult.food_name}
+                    subtitle={`${aiResult.calories} kcal • ${aiResult.serving_size}`}
+                    className="w-16 h-16 rounded-xl shrink-0"
+                    imgClassName="w-16 h-16 rounded-xl object-cover border border-emerald-500/40"
+                  />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-black text-white truncate">{aiResult.food_name}</p>
+                  <p className="text-xs text-lime font-medium mt-0.5">
+                    Serving: {aiResult.serving_size}
+                  </p>
+                </div>
+              </div>
+
+              {/* Detailed AI Description & Notes Factored Block */}
+              {aiResult.description && (
+                <div className="p-2.5 rounded-xl bg-dark-900/90 border border-white/10 space-y-1">
+                  <div className="flex items-center justify-between gap-1 text-[10px] font-bold text-lime uppercase tracking-wider">
+                    <span className="flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-amber-400" />
+                      <span>AI Nutritional Breakdown</span>
+                    </span>
+                    {notes && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-lime/20 text-lime font-bold">
+                        Context Factored
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-200 leading-relaxed italic">
                     "{aiResult.description}"
                   </p>
-                )}
-              </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-4 gap-1.5 pt-1 text-center">
                 <div className="p-1.5 rounded-lg bg-dark-900/90 border border-white/5">
@@ -348,14 +458,73 @@ export const FoodLoggerModal = ({
                 </div>
               </div>
 
-              <p className="text-[10px] text-emerald-300/90 font-medium text-center pt-0.5">
-                ⚡ All inputs filled below. Simply review and tap <strong>Save Meal</strong>!
-              </p>
+              {/* Re-calculate button with updated notes */}
+              <div className="flex items-center justify-between pt-1 border-t border-white/5">
+                <p className="text-[10px] text-slate-400">
+                  Tweak notes above anytime and re-calculate
+                </p>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => analyzeFoodWithAi()}
+                  isLoading={isAnalyzingAi}
+                  leftIcon={<RefreshCw className="w-3 h-3 text-lime" />}
+                  className="text-[11px] py-1 px-2.5 h-auto"
+                >
+                  Re-calculate with Notes
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* AI State: Photo Selected but not yet analyzed */}
+          {!isAnalyzingAi && !aiResult && (localImagePreview || foodPhotoUrl || selectedFileForAi) && (
+            <div className="p-3.5 rounded-xl bg-dark-950/80 border border-lime/30 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <ClickableImage
+                  src={localImagePreview || foodPhotoUrl}
+                  alt="Selected meal photo"
+                  title="Selected meal photo"
+                  className="w-14 h-14 rounded-xl shrink-0"
+                  imgClassName="w-14 h-14 rounded-xl object-cover border border-lime/40"
+                />
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-white truncate">Photo Selected</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {notes ? 'Ready to analyze with your custom notes' : 'Add any notes above or calculate directly'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <label className="text-[10px] font-bold text-slate-400 hover:text-white cursor-pointer px-2 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 transition-colors">
+                  Change
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoChange}
+                    disabled={isUploadingPhoto || isAnalyzingAi}
+                    className="hidden"
+                  />
+                </label>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  onClick={() => analyzeFoodWithAi()}
+                  isLoading={isAnalyzingAi}
+                  leftIcon={<Zap className="w-3.5 h-3.5 fill-dark-950" />}
+                  className="text-xs font-bold shadow-lime-sm"
+                >
+                  Analyze with AI
+                </Button>
+              </div>
             </div>
           )}
 
           {/* AI State: Idle Upload Prompt */}
-          {!isAnalyzingAi && !aiResult && (
+          {!isAnalyzingAi && !aiResult && !localImagePreview && !foodPhotoUrl && !selectedFileForAi && (
             <label className="group flex flex-col items-center justify-center gap-2 p-4 rounded-xl bg-dark-950/70 hover:bg-dark-950 border border-dashed border-lime/40 hover:border-lime cursor-pointer transition-all active:scale-[0.99]">
               <div className="flex items-center gap-2 text-lime group-hover:scale-105 transition-transform">
                 <Camera className="w-5 h-5" />
@@ -366,7 +535,7 @@ export const FoodLoggerModal = ({
                   📸 Upload Meal Photo for Instant AI Calculation
                 </p>
                 <p className="text-[11px] text-slate-400 mt-0.5 max-w-sm">
-                  Snap or select a photo of cooked meal, plate, or snack packet (e.g. Biskrem, shake)
+                  AI will identify the dish, read your notes above (portions, cooking oils), and compute accurate macros
                 </p>
               </div>
               <input
@@ -503,6 +672,24 @@ export const FoodLoggerModal = ({
           </div>
         </div>
 
+        {/* Meal Notes / Preparation Details */}
+        <div className="p-3.5 rounded-2xl bg-dark-950 border border-white/10 space-y-1.5">
+          <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <FileText className="w-3.5 h-3.5 text-lime" />
+              <span>Meal Notes &amp; Preparation (Saved with Log)</span>
+            </span>
+            <span className="text-[10px] text-slate-500 font-normal">Optional</span>
+          </label>
+          <textarea
+            rows={2}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder='e.g., Cooked in 1 tbsp olive oil, 2 rotis with homemade paneer bhurji, 250ml milk'
+            className="w-full bg-dark-900 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-lime resize-none transition-colors"
+          />
+        </div>
+
         {/* Food Photo Upload Section */}
         <div className="p-3.5 rounded-2xl bg-dark-850/80 border border-white/10 space-y-2.5">
           <div className="flex items-center justify-between">
@@ -515,18 +702,22 @@ export const FoodLoggerModal = ({
             </span>
           </div>
 
-          {foodPhotoUrl ? (
+          {(foodPhotoUrl || localImagePreview) ? (
             <div className="flex items-center gap-3">
               <div className="relative inline-block mt-1">
                 <ClickableImage
-                  src={foodPhotoUrl}
+                  src={foodPhotoUrl || localImagePreview}
                   alt="Meal photo preview"
                   title={foodName || 'Meal photo preview'}
                   className="w-24 h-24 rounded-2xl object-cover border border-lime/40 shadow-md"
                 />
                 <button
                   type="button"
-                  onClick={() => setFoodPhotoUrl('')}
+                  onClick={() => {
+                    setFoodPhotoUrl('');
+                    setLocalImagePreview(null);
+                    setSelectedFileForAi(null);
+                  }}
                   className="absolute -top-2 -right-2 p-1 rounded-full bg-rose-500 text-white shadow-md hover:bg-rose-600 transition-colors z-10"
                   title="Remove photo"
                 >
@@ -534,21 +725,27 @@ export const FoodLoggerModal = ({
                 </button>
               </div>
 
-              {/* Re-scan existing photo button */}
+              {/* Re-scan existing photo button with current notes */}
               <div className="space-y-1.5">
                 <Button
                   type="button"
                   variant="secondary"
                   size="sm"
-                  onClick={() => analyzeFoodWithAi({ imageUrl: foodPhotoUrl })}
+                  onClick={() =>
+                    analyzeFoodWithAi({
+                      imageUrl: foodPhotoUrl,
+                      file: selectedFileForAi,
+                      userNotes: notes,
+                    })
+                  }
                   isLoading={isAnalyzingAi}
                   leftIcon={<Sparkles className="w-3.5 h-3.5 text-lime" />}
                   className="text-xs"
                 >
-                  Re-scan Photo with AI
+                  Re-scan with AI &amp; Notes
                 </Button>
                 <p className="text-[10px] text-slate-400">
-                  Recomputes calories &amp; macros from this photo
+                  {notes ? 'Factors your custom notes into the macro calculation' : 'Recomputes calories & macros from this photo'}
                 </p>
               </div>
             </div>

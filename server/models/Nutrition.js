@@ -48,6 +48,11 @@ const nutritionSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    notes: {
+      type: String,
+      default: '',
+      trim: true,
+    },
   },
   {
     timestamps: true,
@@ -63,6 +68,7 @@ const nutritionSchema = new mongoose.Schema(
         ret.carbs_g = ret.carbsG;
         ret.fat_g = ret.fatG;
         ret.photo_url = ret.photoUrl || null;
+        ret.notes = ret.notes || '';
         delete ret._id;
         delete ret.__v;
         return ret;

@@ -55,7 +55,7 @@ router.get('/', authMiddleware, async (req, res) => {
 // POST /api/nutrition/food
 router.post('/food', authMiddleware, async (req, res) => {
   try {
-    const { date, mealType, foodName, servingSize, calories, proteinG, carbsG, fatG, photoUrl, photo_url } = req.body;
+    const { date, mealType, foodName, servingSize, calories, proteinG, carbsG, fatG, photoUrl, photo_url, notes, description } = req.body;
 
     if (!date || !mealType || !foodName || calories === undefined) {
       return res.status(400).json({ error: 'Date, mealType, foodName, and calories are required.' });
@@ -72,6 +72,7 @@ router.post('/food', authMiddleware, async (req, res) => {
       carbsG: Number(carbsG) || 0,
       fatG: Number(fatG) || 0,
       photoUrl: photoUrl || photo_url || null,
+      notes: notes || description || '',
     });
 
     await item.save();
@@ -84,7 +85,7 @@ router.post('/food', authMiddleware, async (req, res) => {
 // PUT /api/nutrition/food/:id - Edit food entry
 router.put('/food/:id', authMiddleware, async (req, res) => {
   try {
-    const { date, mealType, foodName, servingSize, calories, proteinG, carbsG, fatG, photoUrl, photo_url } = req.body;
+    const { date, mealType, foodName, servingSize, calories, proteinG, carbsG, fatG, photoUrl, photo_url, notes, description } = req.body;
 
     const item = await Nutrition.findOne({ _id: req.params.id, userId: req.userId });
     if (!item) {
@@ -101,6 +102,9 @@ router.put('/food/:id', authMiddleware, async (req, res) => {
     if (fatG !== undefined) item.fatG = Number(fatG) || 0;
     if (photoUrl !== undefined || photo_url !== undefined) {
       item.photoUrl = photoUrl || photo_url || null;
+    }
+    if (notes !== undefined || description !== undefined) {
+      item.notes = notes || description || '';
     }
 
     await item.save();

@@ -251,6 +251,11 @@ export const NutritionPage = () => {
                               <span className="text-amber-400">{item.carbs_g ?? item.carbsG}g C</span> •{' '}
                               <span className="text-rose-400">{item.fat_g ?? item.fatG}g F</span>
                             </p>
+                            {item.notes && (
+                              <p className="text-[10px] text-lime/80 truncate italic mt-0.5" title={item.notes}>
+                                "{item.notes}"
+                              </p>
+                            )}
                           </div>
                         </div>
 
