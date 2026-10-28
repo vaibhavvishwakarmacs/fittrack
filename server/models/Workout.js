@@ -5,6 +5,9 @@ const exerciseSetSchema = new mongoose.Schema(
     setNumber: { type: Number, required: true },
     weightKg: { type: Number, default: 0 },
     reps: { type: Number, default: 10 },
+    timeSec: { type: Number, default: 0 },
+    distanceMeters: { type: Number, default: 0 },
+    calories: { type: Number, default: 0 },
     rpe: { type: Number, default: null },
     support: {
       type: String,
@@ -12,6 +15,7 @@ const exerciseSetSchema = new mongoose.Schema(
       default: 'normal',
     },
     isCompleted: { type: Boolean, default: true },
+    completedAt: { type: Date, default: null },
   },
   { _id: true }
 );
@@ -28,6 +32,14 @@ const workoutExerciseSchema = new mongoose.Schema(
     imageUrl: { type: String, default: null },
     targetMuscles: [{ type: String }],
     tips: [{ type: String }],
+    trackingFields: {
+      type: [String],
+      default: ['weight', 'reps'],
+    },
+    defaultRestSec: {
+      type: Number,
+      default: 90,
+    },
     sets: [exerciseSetSchema],
   },
   { _id: true }
@@ -71,7 +83,7 @@ const workoutSchema = new mongoose.Schema(
         ret.started_at = ret.startedAt ? ret.startedAt.toISOString() : new Date().toISOString();
         if (ret.exercises) {
           ret.exercises = ret.exercises.map((ex) => ({
-            id: ex._id.toString(),
+            id: ex._id ? ex._id.toString() : undefined,
             exercise_name: ex.name,
             exercise_category: ex.category,
             order_index: ex.orderIndex,
@@ -79,14 +91,20 @@ const workoutSchema = new mongoose.Schema(
             image_url: ex.imageUrl,
             target_muscles: ex.targetMuscles || [],
             tips: ex.tips || [],
+            tracking_fields: Array.isArray(ex.trackingFields) && ex.trackingFields.length > 0 ? ex.trackingFields : ['weight', 'reps'],
+            default_rest_sec: Number(ex.defaultRestSec) || 90,
             sets: (ex.sets || []).map((s) => ({
-              id: s._id.toString(),
+              id: s._id ? s._id.toString() : undefined,
               set_number: s.setNumber,
-              weight_kg: s.weightKg,
-              reps: s.reps,
+              weight_kg: s.weightKg ?? 0,
+              reps: s.reps ?? 0,
+              time_sec: s.timeSec ?? 0,
+              distance_meters: s.distanceMeters ?? 0,
+              calories: s.calories ?? 0,
               rpe: s.rpe,
               support: s.support || 'normal',
               is_completed: s.isCompleted,
+              completed_at: s.completedAt ? (s.completedAt.toISOString ? s.completedAt.toISOString() : s.completedAt) : null,
             })),
           }));
         }

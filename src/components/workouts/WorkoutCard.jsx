@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { formatDisplayDate } from '../../lib/utils';
+import { formatSetDisplay } from '../../services/exerciseService';
 import {
   Clock,
   Flame,
@@ -132,7 +133,7 @@ export const WorkoutCard = ({
                         key={sIdx}
                         className="px-2 py-0.5 rounded-md bg-dark-850 text-slate-300 text-[10px] font-mono border border-white/5"
                       >
-                        {s.weight_kg ?? s.weightKg}{unit} × {s.reps} {s.rpe ? `@RPE${s.rpe}` : ''}
+                        {formatSetDisplay(s, ex.tracking_fields || ex.trackingFields, unit)}
                       </span>
                     ))}
                   </div>

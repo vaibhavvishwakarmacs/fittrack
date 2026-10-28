@@ -424,6 +424,7 @@ export const EXERCISE_VARIATIONS_BY_MUSCLE = {
         'Breathe rhythmically and maintain conversational heart rate.',
       ],
       defaultRestSec: 45,
+      trackingFields: ['time', 'distance', 'calories'],
       image: 'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?w=600&auto=format&fit=crop&q=80',
     },
     {
@@ -434,6 +435,7 @@ export const EXERCISE_VARIATIONS_BY_MUSCLE = {
         'Keep cadence above 85 RPM during working intervals.',
       ],
       defaultRestSec: 60,
+      trackingFields: ['time', 'calories'],
       image: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=600&auto=format&fit=crop&q=80',
     },
     {
@@ -444,6 +446,7 @@ export const EXERCISE_VARIATIONS_BY_MUSCLE = {
         'Maintain a tall posture without leaning excessively on upper console.',
       ],
       defaultRestSec: 45,
+      trackingFields: ['time', 'calories'],
     },
     {
       name: 'Rowing Machine 500m Intervals',
@@ -453,6 +456,7 @@ export const EXERCISE_VARIATIONS_BY_MUSCLE = {
         'Recovery: Arms forward, hinge hips, then bend knees back to the catch.',
       ],
       defaultRestSec: 60,
+      trackingFields: ['distance', 'time', 'calories'],
     },
     {
       name: 'High-Speed Jump Rope',
@@ -462,6 +466,7 @@ export const EXERCISE_VARIATIONS_BY_MUSCLE = {
         'Rotate the rope using wrists, keeping elbows pinned near your hips.',
       ],
       defaultRestSec: 45,
+      trackingFields: ['time', 'reps'],
     },
     {
       name: 'HIIT Sprint Circuit',
@@ -471,6 +476,7 @@ export const EXERCISE_VARIATIONS_BY_MUSCLE = {
         'Focus on rapid knee drive and aggressive arm swings.',
       ],
       defaultRestSec: 60,
+      trackingFields: ['time', 'calories'],
     },
   ],
 };

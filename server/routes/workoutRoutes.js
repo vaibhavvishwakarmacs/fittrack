@@ -58,19 +58,27 @@ router.post('/', authMiddleware, async (req, res) => {
       startedAt: startedAt ? new Date(startedAt) : new Date(),
       exercises: (exercises || []).map((ex, exIdx) => ({
         name: ex.name,
-        category: ex.category || 'chest',
+        category: ex.category || ex.muscle || 'chest',
         orderIndex: exIdx,
         notes: ex.notes || null,
-        imageUrl: ex.imageUrl || ex.image_url || null,
-        targetMuscles: ex.targetMuscles || ex.target_muscles || [],
+        imageUrl: ex.imageUrl || ex.image_url || ex.image || null,
+        targetMuscles: ex.targetMuscles || ex.target_muscles || (ex.muscle ? [ex.muscle] : []),
         tips: ex.tips || [],
+        trackingFields: Array.isArray(ex.trackingFields || ex.tracking_fields) && (ex.trackingFields || ex.tracking_fields).length > 0
+          ? (ex.trackingFields || ex.tracking_fields)
+          : ['weight', 'reps'],
+        defaultRestSec: Number(ex.defaultRestSec || ex.default_rest_sec) || 90,
         sets: (ex.sets || []).map((s) => ({
           setNumber: s.setNumber || s.set_number,
           reps: Number(s.reps) || 0,
-          weightKg: Number(s.weightKg || s.weight_kg) || 0,
+          weightKg: Number(s.weightKg !== undefined ? s.weightKg : s.weight_kg) || 0,
+          timeSec: Number(s.timeSec !== undefined ? s.timeSec : s.time_sec) || 0,
+          distanceMeters: Number(s.distanceMeters !== undefined ? s.distanceMeters : s.distance_meters) || 0,
+          calories: Number(s.calories) || 0,
           rpe: s.rpe ? Number(s.rpe) : null,
           support: s.support || 'normal',
           isCompleted: s.isCompleted !== false && s.is_completed !== false,
+          completedAt: s.completedAt ? new Date(s.completedAt) : null,
         })),
       })),
     });

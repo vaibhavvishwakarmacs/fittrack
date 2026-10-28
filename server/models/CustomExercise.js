@@ -31,6 +31,18 @@ const customExerciseSchema = new mongoose.Schema(
       type: Number,
       default: 90,
     },
+    trackingFields: {
+      type: [String],
+      default: ['weight', 'reps'],
+    },
+    isPresetOverride: {
+      type: Boolean,
+      default: false,
+    },
+    originalPresetName: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -39,7 +51,11 @@ const customExerciseSchema = new mongoose.Schema(
       transform: function (_doc, ret) {
         ret.id = ret._id.toString();
         ret.user_id = ret.userId ? ret.userId.toString() : '';
-        ret.isCustom = true;
+        ret.isCustom = !ret.isPresetOverride;
+        ret.isPresetOverride = Boolean(ret.isPresetOverride);
+        ret.originalPresetName = ret.originalPresetName || null;
+        ret.trackingFields = Array.isArray(ret.trackingFields) && ret.trackingFields.length > 0 ? ret.trackingFields : ['weight', 'reps'];
+        ret.defaultRestSec = Number(ret.defaultRestSec) || 90;
         delete ret._id;
         delete ret.__v;
         return ret;

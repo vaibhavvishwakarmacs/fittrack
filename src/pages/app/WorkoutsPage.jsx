@@ -6,12 +6,13 @@ import { workoutService } from '../../services/workoutService';
 import { fastCache } from '../../lib/cache';
 import { WorkoutCard } from '../../components/workouts/WorkoutCard';
 import { WorkoutEditModal } from '../../components/workouts/WorkoutEditModal';
+import { MasterMovementLibraryModal } from '../../components/workouts/MasterMovementLibraryModal';
 import { ConfirmDeleteModal } from '../../components/common/ConfirmDeleteModal';
 import { WorkoutsSkeleton } from '../../components/common/Skeleton';
 import { ShareCardModal } from '../../components/common/ShareCardModal';
 import { Button } from '../../components/common/Button';
 import { EmptyState } from '../../components/common/EmptyState';
-import { Dumbbell, Plus, Clock, Trophy } from 'lucide-react';
+import { Dumbbell, Plus, Clock, Trophy, Layers } from 'lucide-react';
 
 export const WorkoutsPage = () => {
   const { user, profile } = useAuth();
@@ -29,6 +30,7 @@ export const WorkoutsPage = () => {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [sharingWorkout, setSharingWorkout] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isMasterLibraryOpen, setIsMasterLibraryOpen] = useState(false);
 
   const unit = profile?.unit_system === 'imperial' ? 'lbs' : 'kg';
 
@@ -104,15 +106,27 @@ export const WorkoutsPage = () => {
           </p>
         </div>
 
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={() => startSession(loadWorkouts)}
-          leftIcon={<Dumbbell className="w-4 h-4" />}
-          className="self-start sm:self-auto font-bold shadow-lime-sm"
-        >
-          {hasActiveSavedSession ? 'Resume Live Workout' : 'Start Workout Session'}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setIsMasterLibraryOpen(true)}
+            leftIcon={<Layers className="w-4 h-4 text-lime" />}
+            className="font-bold border border-white/10"
+          >
+            Movement Library
+          </Button>
+
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => startSession(loadWorkouts)}
+            leftIcon={<Dumbbell className="w-4 h-4" />}
+            className="font-bold shadow-lime-sm"
+          >
+            {hasActiveSavedSession ? 'Resume Live Workout' : 'Start Workout Session'}
+          </Button>
+        </div>
       </div>
 
       {/* Aggregate Stats Banner */}
@@ -224,6 +238,12 @@ export const WorkoutsPage = () => {
           exercises: sharingWorkout.exercises || [],
           date: (sharingWorkout.started_at || sharingWorkout.startedAt || '').split('T')[0],
         } : {}}
+      />
+
+      {/* Master Movement Library Modal */}
+      <MasterMovementLibraryModal
+        isOpen={isMasterLibraryOpen}
+        onClose={() => setIsMasterLibraryOpen(false)}
       />
     </div>
   );

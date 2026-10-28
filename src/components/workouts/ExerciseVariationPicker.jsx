@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { ClickableImage } from '../common/ImageViewerModal';
 import { EXERCISE_VARIATIONS_BY_MUSCLE, MUSCLE_GROUPS } from '../../data/muscleData';
-import { Dumbbell, Plus, Sparkles, Image, Check, ChevronRight, Trash2 } from 'lucide-react';
-import { api } from '../../lib/api';
 import { exerciseService } from '../../services/exerciseService';
+import { MovementEditorModal } from './MovementEditorModal';
+import { MasterMovementLibraryModal } from './MasterMovementLibraryModal';
+import { Dumbbell, Plus, Sparkles, Check, ChevronRight, Trash2, Pencil, Layers, Timer } from 'lucide-react';
+import { useToast } from '../../contexts/ToastContext';
 
 export const ExerciseVariationPicker = ({
   isOpen,
@@ -14,19 +16,16 @@ export const ExerciseVariationPicker = ({
   initialMuscle = 'chest',
   onSelectVariation,
 }) => {
+  const { success, error: toastError } = useToast();
   const [selectedMuscle, setSelectedMuscle] = useState(initialMuscle);
-  const [isCreatingNew, setIsCreatingNew] = useState(false);
 
-  // New variation form state
-  const [newName, setNewName] = useState('');
-  const [newTarget, setNewTarget] = useState('');
-  const [newTips, setNewTips] = useState('');
-  const [newImageUrl, setNewImageUrl] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
-  const [isSavingDb, setIsSavingDb] = useState(false);
-
-  // Database-backed custom variations
+  // Database-backed custom variations & overrides
   const [dbCustomVariations, setDbCustomVariations] = useState([]);
+
+  // Modals inside picker
+  const [editingMovement, setEditingMovement] = useState(null);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [isMasterLibraryOpen, setIsMasterLibraryOpen] = useState(false);
 
   useEffect(() => {
     if (initialMuscle) {
@@ -34,277 +33,262 @@ export const ExerciseVariationPicker = ({
     }
   }, [initialMuscle]);
 
+  const loadCustomData = useCallback(async () => {
+    try {
+      const res = await exerciseService.getCustomExercises();
+      if (res?.data) {
+        setDbCustomVariations(res.data);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
   // Load custom variations from DB on modal open
   useEffect(() => {
     if (isOpen) {
-      exerciseService.getCustomExercises().then((res) => {
-        if (res.data) {
-          setDbCustomVariations(res.data);
-        }
-      });
+      loadCustomData();
     }
-  }, [isOpen]);
+  }, [isOpen, loadCustomData]);
 
-  const defaultVariations = EXERCISE_VARIATIONS_BY_MUSCLE[selectedMuscle] || [];
-  const addedCustomForMuscle = dbCustomVariations.filter(
-    (item) => (item.muscle || '').toLowerCase() === selectedMuscle.toLowerCase()
-  );
-  const allVariations = [...defaultVariations, ...addedCustomForMuscle];
-
-  const handleImageFileChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploading(true);
-    try {
-      // Use api.upload which handles multipart formData correctly into GYM/<user>/gym folder
-      const res = await api.upload(file, { category: 'gym' });
-      if (res && res.url) {
-        setNewImageUrl(res.url);
-      }
-    } catch (err) {
-      console.warn('Image upload error:', err);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleSaveCustomVariation = async () => {
-    if (!newName.trim()) return;
-
-    setIsSavingDb(true);
-    const customPayload = {
-      name: newName.trim(),
-      muscle: selectedMuscle,
-      target: newTarget.trim() || `${selectedMuscle.toUpperCase()} Emphasis`,
-      tips: newTips.trim() ? [newTips.trim()] : ['Perform with strict form and controlled tempo.'],
-      image: newImageUrl || null,
-      defaultRestSec: 90,
-      isCustom: true,
-    };
-
-    try {
-      const res = await exerciseService.createCustomExercise(customPayload);
-      const saved = res.data || customPayload;
-
-      setDbCustomVariations((prev) => [saved, ...prev]);
-      onSelectVariation(saved, selectedMuscle);
-      setIsCreatingNew(false);
-      setNewName('');
-      setNewTarget('');
-      setNewTips('');
-      setNewImageUrl('');
-      onClose();
-    } catch (err) {
-      console.error('Failed to save custom variation:', err);
-    } finally {
-      setIsSavingDb(false);
-    }
-  };
+  // Merge presets with user DB overrides & user custom exercises
+  const variationsForMuscle = useMemo(() => {
+    const merged = exerciseService.mergeMovementsWithOverrides(
+      EXERCISE_VARIATIONS_BY_MUSCLE,
+      dbCustomVariations
+    );
+    return merged[selectedMuscle] || [];
+  }, [selectedMuscle, dbCustomVariations]);
 
   const handleDeleteCustom = async (e, id) => {
     e.stopPropagation();
-    await exerciseService.deleteCustomExercise(id);
-    setDbCustomVariations((prev) => prev.filter((item) => item.id !== id));
+    try {
+      await exerciseService.deleteCustomExercise(id);
+      success('Deleted custom movement');
+      loadCustomData();
+    } catch {
+      toastError('Failed to delete movement');
+    }
+  };
+
+  const handleEditMovement = (e, mov) => {
+    e.stopPropagation();
+    setEditingMovement({
+      ...mov,
+      muscle: mov.muscle || selectedMuscle,
+    });
+    setIsEditorOpen(true);
+  };
+
+  const handleCreateNew = () => {
+    setEditingMovement({
+      name: '',
+      muscle: selectedMuscle,
+      target: '',
+      tips: [],
+      image: null,
+      defaultRestSec: 90,
+      trackingFields: ['weight', 'reps'],
+      isCustom: true,
+      isPreset: false,
+      isPresetOverride: false,
+    });
+    setIsEditorOpen(true);
+  };
+
+  const handleMovementSaved = (savedMovement) => {
+    loadCustomData();
+    if (savedMovement && savedMovement.name) {
+      onSelectVariation(savedMovement, selectedMuscle);
+      onClose();
+    }
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Select Movement Variation"
-      description="Pick an exercise variation or add a custom movement saved to your database"
-      maxWidth="xl"
-    >
-      <div className="space-y-4 text-left">
-        {/* Muscle selector pills */}
-        <div>
-          <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-            Muscle / Target Group
-          </label>
-          <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
-            {MUSCLE_GROUPS.map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => {
-                  setSelectedMuscle(m.id);
-                  setIsCreatingNew(false);
-                }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${
-                  selectedMuscle === m.id
-                    ? 'bg-lime text-dark-950 font-bold shadow-lime-sm'
-                    : 'bg-dark-850 hover:bg-dark-800 text-slate-300 border border-white/5'
-                }`}
-              >
-                {m.label.split(' ')[0]}
-              </button>
-            ))}
+    <>
+      <Modal
+        isOpen={isOpen && !isEditorOpen && !isMasterLibraryOpen}
+        onClose={onClose}
+        title="Select Movement Variation"
+        description="Choose a movement, customize values & units, or open the Master Library"
+        maxWidth="xl"
+      >
+        <div className="space-y-4 text-left">
+          {/* Top Actions: Master Library Button & Create New */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => setIsMasterLibraryOpen(true)}
+              className="text-xs font-bold text-slate-300 hover:text-white px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center gap-1.5 transition-colors"
+            >
+              <Layers className="w-3.5 h-3.5 text-lime" />
+              <span>Master Movement Library</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleCreateNew}
+              className="text-xs font-bold text-lime hover:underline flex items-center gap-1"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>+ Custom Movement</span>
+            </button>
           </div>
-        </div>
 
-        {/* Create Custom Form Toggle */}
-        {isCreatingNew ? (
-          <div className="p-4 rounded-2xl bg-dark-850 border border-lime/30 space-y-3 animate-in fade-in">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-lime" />
-                <span>Add Custom Variation for {selectedMuscle.toUpperCase()}</span>
-              </h3>
-              <button
-                type="button"
-                onClick={() => setIsCreatingNew(false)}
-                className="text-xs text-slate-400 hover:text-white"
-              >
-                Back to List
-              </button>
-            </div>
-
-            <Input
-              label="Variation / Movement Name"
-              placeholder="e.g. Incline Smith Machine Press"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-            />
-
-            <Input
-              label="Specific Anatomy / Target Focus"
-              placeholder="e.g. Upper Pectorals & Front Delts"
-              value={newTarget}
-              onChange={(e) => setNewTarget(e.target.value)}
-            />
-
-            <Input
-              label="Form Tip or Coaching Cue"
-              placeholder="e.g. Touch 2 inches below clavicle, 3s descent"
-              value={newTips}
-              onChange={(e) => setNewTips(e.target.value)}
-            />
-
-            {/* Optional Image */}
-            <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1.5 uppercase tracking-wider">
-                Exercise Photo (Uploaded to Cloudinary)
-              </label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageFileChange}
-                  className="text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-dark-800 file:text-lime hover:file:bg-dark-750 cursor-pointer"
-                />
-                {isUploading && <span className="text-xs text-lime animate-pulse font-semibold">Uploading to Cloudinary...</span>}
-              </div>
-              {newImageUrl && (
-                <div className="mt-2">
-                  <ClickableImage
-                    src={newImageUrl}
-                    alt="Preview"
-                    title="Exercise Preview"
-                    className="w-20 h-20 rounded-xl"
-                    imgClassName="w-20 h-20 rounded-xl object-cover border border-white/10"
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="pt-2 flex justify-end gap-2">
-              <Button type="button" variant="ghost" size="sm" onClick={() => setIsCreatingNew(false)}>
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                onClick={handleSaveCustomVariation}
-                disabled={!newName.trim() || isSavingDb || isUploading}
-                leftIcon={<Check className="w-3.5 h-3.5" />}
-              >
-                {isSavingDb ? 'Saving to Database...' : 'Save to DB & Select'}
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                Available Variations ({allVariations.length})
-              </span>
-              <button
-                type="button"
-                onClick={() => setIsCreatingNew(true)}
-                className="text-xs font-bold text-lime hover:underline flex items-center gap-1"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>+ Custom Variation (Saves to DB)</span>
-              </button>
-            </div>
-
-            {/* Variations list */}
-            <div className="space-y-2 max-h-[380px] overflow-y-auto no-scrollbar pr-1">
-              {allVariations.map((v, idx) => (
-                <div
-                  key={v.id || idx}
-                  onClick={() => {
-                    onSelectVariation(v, selectedMuscle);
-                    onClose();
-                  }}
-                  className="p-3.5 rounded-2xl bg-dark-850 hover:bg-dark-800 border border-white/5 hover:border-lime/40 cursor-pointer transition-all flex items-center justify-between gap-3 group"
+          {/* Muscle selector pills */}
+          <div>
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+              Muscle / Target Group
+            </label>
+            <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+              {MUSCLE_GROUPS.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setSelectedMuscle(m.id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${
+                    selectedMuscle === m.id
+                      ? 'bg-lime text-dark-950 font-bold shadow-lime-sm'
+                      : 'bg-dark-850 hover:bg-dark-800 text-slate-300 border border-white/5'
+                  }`}
                 >
-                  <div className="flex items-center gap-3 min-w-0">
-                    {v.image ? (
-                      <ClickableImage
-                        src={v.image}
-                        alt={v.name}
-                        title={v.name}
-                        subtitle={v.target}
-                        className="w-12 h-12 rounded-xl shrink-0"
-                        imgClassName="w-12 h-12 rounded-xl object-cover border border-white/10"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 rounded-xl bg-dark-900 border border-white/5 flex items-center justify-center text-lime shrink-0">
-                        <Dumbbell className="w-5 h-5" />
-                      </div>
-                    )}
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-bold text-white group-hover:text-lime transition-colors truncate">
-                          {v.name}
-                        </h4>
-                        {v.isCustom && (
-                          <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                            Saved in DB
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-slate-400 truncate mt-0.5">{v.target}</p>
-                      {v.tips?.[0] && (
-                        <p className="text-[10px] text-slate-500 line-clamp-1 italic mt-0.5">
-                          "{v.tips[0]}"
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {v.isCustom && v.id && (
-                      <button
-                        type="button"
-                        onClick={(e) => handleDeleteCustom(e, v.id)}
-                        className="p-1.5 text-slate-500 hover:text-rose-400 transition-colors"
-                        title="Delete from DB"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                    <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-lime shrink-0" />
-                  </div>
-                </div>
+                  {m.label.split(' ')[0]}
+                </button>
               ))}
             </div>
           </div>
-        )}
-      </div>
-    </Modal>
+
+          {/* Variations list */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                Available Variations ({variationsForMuscle.length})
+              </span>
+            </div>
+
+            <div className="space-y-2 max-h-[380px] overflow-y-auto no-scrollbar pr-1">
+              {variationsForMuscle.map((v, idx) => {
+                const fields = v.trackingFields || v.tracking_fields || ['weight', 'reps'];
+                const isOverridden = Boolean(v.isOverridden || (v.isPresetOverride && v.originalPresetName));
+                const isCustom = Boolean(v.isCustom && !v.isPresetOverride);
+
+                return (
+                  <div
+                    key={v.id || idx}
+                    onClick={() => {
+                      onSelectVariation(v, selectedMuscle);
+                      onClose();
+                    }}
+                    className="p-3.5 rounded-2xl bg-dark-850 hover:bg-dark-800 border border-white/5 hover:border-lime/40 cursor-pointer transition-all flex items-center justify-between gap-3 group"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      {v.image ? (
+                        <ClickableImage
+                          src={v.image}
+                          alt={v.name}
+                          title={v.name}
+                          subtitle={v.target}
+                          className="w-12 h-12 rounded-xl shrink-0"
+                          imgClassName="w-12 h-12 rounded-xl object-cover border border-white/10"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-xl bg-dark-900 border border-white/5 flex items-center justify-center text-lime shrink-0">
+                          <Dumbbell className="w-5 h-5" />
+                        </div>
+                      )}
+                      <div className="min-w-0 space-y-0.5">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <h4 className="text-sm font-bold text-white group-hover:text-lime transition-colors truncate">
+                            {v.name}
+                          </h4>
+                          {isOverridden && (
+                            <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                              Customized Preset
+                            </span>
+                          )}
+                          {isCustom && (
+                            <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                              Custom
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-[11px] text-slate-400 truncate">{v.target}</p>
+
+                        {/* Units badge strip */}
+                        <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                          <span className="text-[9px] text-slate-400 font-mono flex items-center gap-0.5 bg-white/5 px-1.5 py-0.5 rounded">
+                            <Timer className="w-2.5 h-2.5 text-orange-400" />
+                            <span>{v.defaultRestSec || 90}s</span>
+                          </span>
+                          {fields.map((f) => (
+                            <span
+                              key={f}
+                              className="text-[9px] uppercase font-bold px-1.5 py-0.2 rounded bg-lime/10 text-lime"
+                            >
+                              {f}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {/* Edit Button */}
+                      <button
+                        type="button"
+                        onClick={(e) => handleEditMovement(e, v)}
+                        className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-lime transition-colors"
+                        title="Edit Movement & Units"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+
+                      {isCustom && v.id && (
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteCustom(e, v.id)}
+                          className="p-1.5 text-slate-500 hover:text-rose-400 transition-colors"
+                          title="Delete from DB"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+
+                      <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-lime" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Movement Editor Modal */}
+      <MovementEditorModal
+        isOpen={isEditorOpen}
+        onClose={() => setIsEditorOpen(false)}
+        movement={editingMovement}
+        isLiveSession={true}
+        onSaveMovement={handleMovementSaved}
+        onResetPreset={loadCustomData}
+      />
+
+      {/* Master Movement Library Modal */}
+      <MasterMovementLibraryModal
+        isOpen={isMasterLibraryOpen}
+        onClose={() => {
+          setIsMasterLibraryOpen(false);
+          loadCustomData();
+        }}
+        initialMuscle={selectedMuscle}
+        onSelectMovement={(selected, muscle) => {
+          onSelectVariation(selected, muscle);
+          setIsMasterLibraryOpen(false);
+          onClose();
+        }}
+      />
+    </>
   );
 };
