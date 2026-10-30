@@ -16,6 +16,7 @@ const exerciseSetSchema = new mongoose.Schema(
     },
     isCompleted: { type: Boolean, default: true },
     completedAt: { type: Date, default: null },
+    restDurationSec: { type: Number, default: 90 },
   },
   { _id: true }
 );
@@ -81,6 +82,7 @@ const workoutSchema = new mongoose.Schema(
         ret.target_muscles = ret.targetMuscles || [];
         ret.day_of_week = ret.dayOfWeek;
         ret.started_at = ret.startedAt ? ret.startedAt.toISOString() : new Date().toISOString();
+        ret.completed_at = ret.completedAt ? ret.completedAt.toISOString() : null;
         if (ret.exercises) {
           ret.exercises = ret.exercises.map((ex) => ({
             id: ex._id ? ex._id.toString() : undefined,
@@ -103,8 +105,10 @@ const workoutSchema = new mongoose.Schema(
               calories: s.calories ?? 0,
               rpe: s.rpe,
               support: s.support || 'normal',
+              isCompleted: s.isCompleted,
               is_completed: s.isCompleted,
               completed_at: s.completedAt ? (s.completedAt.toISOString ? s.completedAt.toISOString() : s.completedAt) : null,
+              rest_duration_sec: s.restDurationSec ?? ex.defaultRestSec ?? 90,
             })),
           }));
         }

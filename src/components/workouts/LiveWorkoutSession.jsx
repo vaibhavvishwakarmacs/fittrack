@@ -5,6 +5,7 @@ import { AppleRestTimer } from './AppleRestTimer';
 import { ExerciseVariationPicker } from './ExerciseVariationPicker';
 import { MovementEditorModal } from './MovementEditorModal';
 import { MasterMovementLibraryModal } from './MasterMovementLibraryModal';
+import { WorkoutPdfModal } from './WorkoutPdfModal';
 import { exerciseService } from '../../services/exerciseService';
 import { Button } from '../common/Button';
 import { Modal } from '../common/Modal';
@@ -39,6 +40,7 @@ import {
   Sliders,
   Footprints,
   RotateCw,
+  FileText,
 } from 'lucide-react';
 
 const LOCAL_SESSION_KEY = 'fittrack_live_session_state';
@@ -136,6 +138,7 @@ export const LiveWorkoutSession = ({ isOpen, onClose, onWorkoutSaved }) => {
   const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
   const [isDiscardModalOpen, setIsDiscardModalOpen] = useState(false);
   const [exerciseToDeleteIndex, setExerciseToDeleteIndex] = useState(null);
+  const [pdfWorkout, setPdfWorkout] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
 
   // 7. Previous Week Workout Progressive Overload Continuity
@@ -718,6 +721,7 @@ export const LiveWorkoutSession = ({ isOpen, onClose, onWorkoutSaved }) => {
         dayOfWeek,
         durationMinutes: durationMins,
         startedAt: new Date(sessionStartTimeMs).toISOString(),
+        completedAt: new Date().toISOString(),
         exercises: exercises.map((ex, exIdx) => ({
           name: ex.name,
           category: ex.muscle,
@@ -737,6 +741,7 @@ export const LiveWorkoutSession = ({ isOpen, onClose, onWorkoutSaved }) => {
             support: s.support || 'normal',
             isCompleted: s.isCompleted,
             completedAt: s.completedAt || null,
+            restDurationSec: s.restDurationSec || ex.defaultRestSec || 90,
           })),
         })),
       };
@@ -1865,26 +1870,82 @@ export const LiveWorkoutSession = ({ isOpen, onClose, onWorkoutSaved }) => {
             </div>
           </div>
 
-          <div className="pt-2 flex items-center justify-between gap-3">
+          <div className="pt-2 space-y-2">
             <Button
-              variant="ghost"
-              onClick={() => setIsFinishModalOpen(false)}
-              disabled={isSaving}
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const liveWorkoutData = {
+                  title: sessionTitle || `${dayOfWeek} Workout`,
+                  category: targetMuscles.includes('cardio') ? 'hybrid' : 'strength',
+                  targetMuscles,
+                  dayOfWeek,
+                  durationMinutes: durationMins,
+                  startedAt: new Date(sessionStartTimeMs).toISOString(),
+                  completedAt: new Date().toISOString(),
+                  totalVolumeKg: totalVolume,
+                  caloriesBurned: caloriesBurnedEstimate,
+                  notes: notes || null,
+                  exercises: exercises.map((ex, exIdx) => ({
+                    name: ex.name,
+                    category: ex.muscle,
+                    orderIndex: exIdx,
+                    trackingFields: ex.trackingFields || ['weight', 'reps'],
+                    defaultRestSec: ex.defaultRestSec || 90,
+                    sets: ex.sets.map((s) => ({
+                      setNumber: s.setNumber,
+                      weightKg: Number(s.weightKg) || 0,
+                      reps: Number(s.reps) || 0,
+                      timeSec: Number(s.timeSec) || 0,
+                      distanceMeters: Number(s.distanceMeters) || 0,
+                      calories: Number(s.calories) || 0,
+                      support: s.support || 'normal',
+                      isCompleted: s.isCompleted,
+                      completedAt: s.completedAt || null,
+                      restDurationSec: s.restDurationSec || ex.defaultRestSec || 90,
+                    })),
+                  })),
+                };
+                setPdfWorkout(liveWorkoutData);
+              }}
+              leftIcon={<FileText className="w-4 h-4 text-lime" />}
+              className="w-full justify-center font-bold text-xs py-2.5 border-lime/30 text-lime hover:bg-lime/10"
             >
-              Keep Training
+              Share PDF Summary (Timestamps &amp; Breaks)
             </Button>
-            <Button
-              variant="primary"
-              size="md"
-              onClick={handleSaveAndCompleteSession}
-              isLoading={isSaving}
-              rightIcon={<Check className="w-4 h-4" />}
-            >
-              Save Workout
-            </Button>
+
+            <div className="flex items-center justify-between gap-3">
+              <Button
+                variant="ghost"
+                onClick={() => setIsFinishModalOpen(false)}
+                disabled={isSaving}
+              >
+                Keep Training
+              </Button>
+              <Button
+                variant="primary"
+                size="md"
+                onClick={handleSaveAndCompleteSession}
+                isLoading={isSaving}
+                rightIcon={<Check className="w-4 h-4" />}
+                className="font-bold shadow-lime-sm"
+              >
+                Save Workout
+              </Button>
+            </div>
           </div>
         </div>
       </Modal>
+
+      {/* Live Session Summary PDF Modal */}
+      <WorkoutPdfModal
+        isOpen={Boolean(pdfWorkout)}
+        onClose={() => setPdfWorkout(null)}
+        workout={pdfWorkout}
+        unit={unit}
+        athleteName={user?.name || user?.email || 'FitTrack Athlete'}
+      />
 
       {/* Discard Confirmation Modal */}
       <ConfirmDeleteModal

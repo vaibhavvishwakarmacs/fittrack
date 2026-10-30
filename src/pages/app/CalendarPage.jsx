@@ -7,6 +7,7 @@ import { activityService } from '../../services/activityService';
 import { formatDateToISO, formatDisplayDate } from '../../lib/utils';
 import { Button } from '../../components/common/Button';
 import { WorkoutCard } from '../../components/workouts/WorkoutCard';
+import { WorkoutPdfModal } from '../../components/workouts/WorkoutPdfModal';
 import { FoodLoggerModal } from '../../components/nutrition/FoodLoggerModal';
 import {
   Calendar as CalendarIcon,
@@ -30,6 +31,7 @@ export const CalendarPage = () => {
 
   // Modals
   const [isFoodModalOpen, setIsFoodModalOpen] = useState(false);
+  const [pdfWorkout, setPdfWorkout] = useState(null);
 
   const unit = profile?.unit_system === 'imperial' ? 'lbs' : 'kg';
 
@@ -322,6 +324,7 @@ export const CalendarPage = () => {
                 key={w.id}
                 workout={w}
                 unit={unit}
+                onSharePdf={(target) => setPdfWorkout(target)}
                 onDelete={async (id) => {
                   if (!user) return;
                   await workoutService.deleteWorkout(user.id, id);
@@ -413,6 +416,15 @@ export const CalendarPage = () => {
         onClose={() => setIsFoodModalOpen(false)}
         onFoodLogged={() => loadDayData(selectedDate)}
         defaultDate={selectedDate}
+      />
+
+      {/* Workout Summary PDF Modal */}
+      <WorkoutPdfModal
+        isOpen={Boolean(pdfWorkout)}
+        onClose={() => setPdfWorkout(null)}
+        workout={pdfWorkout}
+        unit={unit}
+        athleteName={user?.name || user?.email || 'FitTrack Athlete'}
       />
     </div>
   );

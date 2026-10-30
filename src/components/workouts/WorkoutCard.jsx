@@ -11,6 +11,7 @@ import {
   Pencil,
   Share2,
   Calendar,
+  FileText,
 } from 'lucide-react';
 
 export const WorkoutCard = ({
@@ -19,6 +20,7 @@ export const WorkoutCard = ({
   onDelete,
   onEdit,
   onShare,
+  onSharePdf,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -53,11 +55,23 @@ export const WorkoutCard = ({
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
+          {onSharePdf && (
+            <button
+              onClick={() => onSharePdf(workout)}
+              className="text-slate-400 hover:text-lime p-1.5 rounded-lg hover:bg-lime/10 active:scale-95 transition-all flex items-center gap-1 border border-lime/20 bg-lime/5"
+              title="Share / Download Workout PDF Summary (Timestamps, Sets & Breaks)"
+              aria-label="Share workout in PDF"
+            >
+              <FileText className="w-4 h-4 text-lime" />
+              <span className="text-[10px] font-bold text-lime hidden sm:inline">PDF</span>
+            </button>
+          )}
+
           {onShare && (
             <button
               onClick={() => onShare(workout)}
               className="text-slate-400 hover:text-lime p-1.5 rounded-lg hover:bg-lime/10 active:scale-95 transition-all"
-              title="Share workout card"
+              title="Share visual photo card"
               aria-label="Share workout"
             >
               <Share2 className="w-4 h-4" />

@@ -7,6 +7,7 @@ import { fastCache } from '../../lib/cache';
 import { WorkoutCard } from '../../components/workouts/WorkoutCard';
 import { WorkoutEditModal } from '../../components/workouts/WorkoutEditModal';
 import { MasterMovementLibraryModal } from '../../components/workouts/MasterMovementLibraryModal';
+import { WorkoutPdfModal } from '../../components/workouts/WorkoutPdfModal';
 import { ConfirmDeleteModal } from '../../components/common/ConfirmDeleteModal';
 import { WorkoutsSkeleton } from '../../components/common/Skeleton';
 import { ShareCardModal } from '../../components/common/ShareCardModal';
@@ -29,6 +30,7 @@ export const WorkoutsPage = () => {
   const [editingWorkout, setEditingWorkout] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [sharingWorkout, setSharingWorkout] = useState(null);
+  const [pdfWorkout, setPdfWorkout] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isMasterLibraryOpen, setIsMasterLibraryOpen] = useState(false);
 
@@ -188,6 +190,7 @@ export const WorkoutsPage = () => {
               onEdit={(target) => setEditingWorkout(target)}
               onDelete={(target) => setDeleteTarget(target)}
               onShare={(target) => setSharingWorkout(target)}
+              onSharePdf={(target) => setPdfWorkout(target)}
             />
           ))
         ) : (
@@ -237,7 +240,18 @@ export const WorkoutsPage = () => {
           notes: sharingWorkout.notes,
           exercises: sharingWorkout.exercises || [],
           date: (sharingWorkout.started_at || sharingWorkout.startedAt || '').split('T')[0],
+          started_at: sharingWorkout.started_at || sharingWorkout.startedAt,
+          completed_at: sharingWorkout.completed_at || sharingWorkout.completedAt,
         } : {}}
+      />
+
+      {/* Workout Summary PDF Modal */}
+      <WorkoutPdfModal
+        isOpen={Boolean(pdfWorkout)}
+        onClose={() => setPdfWorkout(null)}
+        workout={pdfWorkout}
+        unit={unit}
+        athleteName={user?.name || user?.email || 'FitTrack Athlete'}
       />
 
       {/* Master Movement Library Modal */}

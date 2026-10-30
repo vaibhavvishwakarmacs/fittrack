@@ -17,7 +17,9 @@ import {
   Calendar,
   Check,
   Loader2,
+  FileText,
 } from 'lucide-react';
+import { shareWorkoutPdf } from '../../services/workoutPdfService';
 
 // Converts remote/CORS images into inline base64 data URLs to prevent html-to-image blank canvas bugs
 const convertImageToBase64 = async (url) => {
@@ -92,8 +94,29 @@ export const ShareCardModal = ({
   const cardRef = useRef(null);
   const { success, error: toastError } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [hasCopied, setHasCopied] = useState(false);
   const [base64Photo, setBase64Photo] = useState(null);
+
+  const handleSharePdf = async () => {
+    setIsGeneratingPdf(true);
+    try {
+      const res = await shareWorkoutPdf(data, {
+        unit,
+        athleteName: data.user_name || 'FitTrack Athlete',
+      });
+      if (res.cancelled) return;
+      if (res.method === 'native') {
+        success('Workout PDF shared successfully!');
+      } else {
+        success('Workout PDF downloaded to your device!');
+      }
+    } catch (err) {
+      toastError(err?.message || 'Failed to share PDF.');
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
 
   const rawPhoto = data?.photo_url || data?.photoUrl;
   const isPhotoLoading = Boolean(rawPhoto) && !base64Photo;
@@ -559,6 +582,21 @@ export const ShareCardModal = ({
             {hasCopied ? 'Copied!' : 'Copy'}
           </Button>
         </div>
+
+        {/* Special Official Workout PDF Export Option */}
+        {type === 'workout' && (
+          <div className="pt-2 border-t border-white/10">
+            <Button
+              variant="outline"
+              onClick={handleSharePdf}
+              isLoading={isGeneratingPdf}
+              leftIcon={<FileText className="w-4 h-4 text-lime" />}
+              className="w-full justify-center font-bold text-xs py-2.5 border-lime/40 text-lime hover:bg-lime/10 shadow-lime-sm"
+            >
+              Share PDF Summary (Timestamps, Sets &amp; Breaks)
+            </Button>
+          </div>
+        )}
       </div>
     </Modal>
   );

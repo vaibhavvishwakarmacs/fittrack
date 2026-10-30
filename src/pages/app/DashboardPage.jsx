@@ -18,6 +18,7 @@ import { WorkoutLoggerModal } from '../../components/workouts/WorkoutLoggerModal
 import { FoodLoggerModal } from '../../components/nutrition/FoodLoggerModal';
 import { WeightLoggerModal } from '../../components/profile/WeightLoggerModal';
 import { ShareCardModal } from '../../components/common/ShareCardModal';
+import { WorkoutPdfModal } from '../../components/workouts/WorkoutPdfModal';
 import {
   Dumbbell,
   Flame,
@@ -54,6 +55,7 @@ export const DashboardPage = () => {
   const [isFoodModalOpen, setIsFoodModalOpen] = useState(false);
   const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
   const [isShareDailyOpen, setIsShareDailyOpen] = useState(false);
+  const [pdfWorkout, setPdfWorkout] = useState(null);
 
   const loadDashboardData = useCallback(async () => {
     if (!user) return;
@@ -292,6 +294,7 @@ export const DashboardPage = () => {
           <WorkoutCard
             workout={todayWorkout}
             unit={unit}
+            onSharePdf={(w) => setPdfWorkout(w)}
             onDelete={async (id) => {
               if (!user) return;
               await workoutService.deleteWorkout(user.id, id);
@@ -379,6 +382,15 @@ export const DashboardPage = () => {
           calories_burned: (activity?.active_calories || 0) + (todayWorkout?.calories_burned || 0),
           date: today,
         }}
+      />
+
+      {/* Workout Summary PDF Modal */}
+      <WorkoutPdfModal
+        isOpen={Boolean(pdfWorkout)}
+        onClose={() => setPdfWorkout(null)}
+        workout={pdfWorkout}
+        unit={unit}
+        athleteName={firstName || 'FitTrack Athlete'}
       />
     </div>
   );
