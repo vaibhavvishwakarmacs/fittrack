@@ -3,9 +3,10 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthLayout } from '../components/layout/AuthLayout';
 import { AppLayout } from '../components/layout/AppLayout';
 import { ProtectedRoute } from './ProtectedRoute';
-import { DashboardSkeleton } from '../components/common/Skeleton';
+import { AppSplashScreen } from '../components/common/AppSplashScreen';
+import { prefetchAllMainRoutes, prefetchRoute } from './pagePrefetch';
 
-// Explicit loaders for idle prefetching (instant tab transitions)
+// Explicit loaders for idle prefetching
 const loadLoginPage = () => import('../pages/auth/LoginPage').then((m) => ({ default: m.LoginPage }));
 const loadSignupPage = () => import('../pages/auth/SignupPage').then((m) => ({ default: m.SignupPage }));
 const loadOnboardingPage = () => import('../pages/onboarding/OnboardingPage').then((m) => ({ default: m.OnboardingPage }));
@@ -39,33 +40,18 @@ const RedirectWithSearch = ({ to }) => {
 };
 
 export const AppRoutes = () => {
-  // Eagerly prefetch main app chunks during idle time for 0ms tab switches
+  // Eagerly prefetch main app chunks right away so tab clicks are instant
   useEffect(() => {
-    const prefetch = () => {
-      loadDashboardPage();
-      loadWorkoutsPage();
-      loadNutritionPage();
-      loadProfilePage();
-      loadCalendarPage();
-      loadActivityPage();
-    };
-
-    if (typeof window !== 'undefined') {
-      if ('requestIdleCallback' in window) {
-        window.requestIdleCallback(prefetch, { timeout: 2000 });
-      } else {
-        setTimeout(prefetch, 400);
-      }
-    }
+    prefetchAllMainRoutes();
   }, []);
 
   return (
-    <Suspense fallback={<DashboardSkeleton />}>
+    <Suspense fallback={<AppSplashScreen message="Opening FitTrack..." />}>
       <Routes>
         {/* Root redirect */}
         <Route path="/" element={<Navigate to="/app/dashboard" replace />} />
 
-        {/* Convenient Top-Level Aliases & Shortcut Sync */}
+        {/* Top-Level Aliases & Shortcut Sync */}
         <Route path="/sync" element={<RedirectWithSearch to="/app/activity" />} />
         <Route path="/sync-steps" element={<RedirectWithSearch to="/app/activity" />} />
         <Route path="/activity" element={<RedirectWithSearch to="/app/activity" />} />
@@ -81,12 +67,12 @@ export const AppRoutes = () => {
           <Route path="/signup" element={<SignupPage />} />
         </Route>
 
-        {/* Onboarding Flow (Requires Authenticated Session, but bypasses completed onboarding check) */}
+        {/* Onboarding Flow */}
         <Route element={<ProtectedRoute requireOnboarding={false} />}>
           <Route path="/onboarding" element={<OnboardingPage />} />
         </Route>
 
-        {/* Main Authenticated App Routes with AppLayout & Persistent Bottom Navigation */}
+        {/* Main Authenticated App Routes with Persistent AppLayout */}
         <Route element={<ProtectedRoute requireOnboarding={true} />}>
           <Route path="/app" element={<AppLayout />}>
             <Route index element={<Navigate to="/app/dashboard" replace />} />

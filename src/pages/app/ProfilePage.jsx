@@ -2,12 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { weightService } from '../../services/weightService';
+import { fastCache } from '../../lib/cache';
 import { formatDisplayDate } from '../../lib/utils';
 import { AvatarUploader } from '../../components/profile/AvatarUploader';
 import { WeightChart } from '../../components/profile/WeightChart';
 import { WeightLoggerModal } from '../../components/profile/WeightLoggerModal';
 import { Button } from '../../components/common/Button';
-import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { ClickableImage } from '../../components/common/ImageViewerModal';
 import { ConfirmDeleteModal } from '../../components/common/ConfirmDeleteModal';
 import { ShareCardModal } from '../../components/common/ShareCardModal';
@@ -22,8 +22,9 @@ import {
 
 export const ProfilePage = () => {
   const { user, profile } = useAuth();
-  const [weightLogs, setWeightLogs] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const cachedLogs = user ? fastCache.get(`weights:${user.id}`) : null;
+  const [weightLogs, setWeightLogs] = useState(cachedLogs || []);
+  const [isLoading, setIsLoading] = useState(!cachedLogs);
   const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -35,7 +36,10 @@ export const ProfilePage = () => {
     if (!user) return;
     try {
       const { data } = await weightService.getWeightLogs(user.id);
-      setWeightLogs(data || []);
+      if (data) {
+        setWeightLogs(data);
+        fastCache.set(`weights:${user.id}`, data, 120000);
+      }
     } catch {
       // ignore
     } finally {
@@ -52,6 +56,7 @@ export const ProfilePage = () => {
     setIsDeleting(true);
     try {
       await weightService.deleteWeightLog(user.id, deleteTarget.id);
+      fastCache.delete(`weights:${user.id}`);
       setDeleteTarget(null);
       loadWeightHistory();
     } catch {
@@ -69,10 +74,6 @@ export const ProfilePage = () => {
   const weightDifference = targetWeight && currentWeight
     ? Math.abs(currentWeight - targetWeight).toFixed(1)
     : null;
-
-  if (isLoading) {
-    return <LoadingSpinner label="Loading profile and body metrics..." size="lg" />;
-  }
 
   return (
     <div className="space-y-6 text-left animate-in fade-in pb-12">

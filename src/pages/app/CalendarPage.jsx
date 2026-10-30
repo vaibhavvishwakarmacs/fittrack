@@ -5,6 +5,7 @@ import { workoutService } from '../../services/workoutService';
 import { nutritionService } from '../../services/nutritionService';
 import { activityService } from '../../services/activityService';
 import { formatDateToISO, formatDisplayDate } from '../../lib/utils';
+import { fastCache } from '../../lib/cache';
 import { Button } from '../../components/common/Button';
 import { WorkoutCard } from '../../components/workouts/WorkoutCard';
 import { WorkoutPdfModal } from '../../components/workouts/WorkoutPdfModal';
@@ -25,9 +26,13 @@ export const CalendarPage = () => {
   const [selectedDate, setSelectedDate] = useState(() => formatDateToISO());
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
 
-  const [workouts, setWorkouts] = useState([]);
-  const [nutritionLogs, setNutritionLogs] = useState([]);
-  const [activity, setActivity] = useState(null);
+  const cachedWorkouts = user ? fastCache.get(`workouts:${user.id}`) : null;
+  const cachedTodayNut = user ? fastCache.get(`nutrition:${user.id}:${selectedDate}`) : null;
+  const cachedTodayAct = user ? fastCache.get(`activity:${user.id}:${selectedDate}`) : null;
+
+  const [workouts, setWorkouts] = useState(() => (cachedWorkouts || []).filter((w) => w.date === selectedDate));
+  const [nutritionLogs, setNutritionLogs] = useState(cachedTodayNut || []);
+  const [activity, setActivity] = useState(cachedTodayAct || null);
 
   // Modals
   const [isFoodModalOpen, setIsFoodModalOpen] = useState(false);
@@ -36,7 +41,7 @@ export const CalendarPage = () => {
   const unit = profile?.unit_system === 'imperial' ? 'lbs' : 'kg';
 
   // Load all user workouts once to show calendar dots
-  const [allWorkouts, setAllWorkouts] = useState([]);
+  const [allWorkouts, setAllWorkouts] = useState(cachedWorkouts || []);
   const [monthFoodLogs, setMonthFoodLogs] = useState([]);
   const [monthActivities, setMonthActivities] = useState([]);
 
@@ -95,6 +100,9 @@ export const CalendarPage = () => {
       setWorkouts(dayWorkouts);
       setNutritionLogs(nutRes.data || []);
       setActivity(actRes.data || null);
+
+      if (nutRes.data) fastCache.set(`nutrition:${user.id}:${date}`, nutRes.data, 60000);
+      if (actRes.data) fastCache.set(`activity:${user.id}:${date}`, actRes.data, 60000);
     } catch {
       // ignore
     }

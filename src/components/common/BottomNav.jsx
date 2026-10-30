@@ -2,6 +2,7 @@ import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Home, CalendarDays, Dumbbell, Utensils, User } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { prefetchRoute } from '../../routes/pagePrefetch';
 
 export const BottomNav = () => {
   const location = useLocation();
@@ -69,6 +70,8 @@ export const BottomNav = () => {
                 key={item.to}
                 to={item.to}
                 onClick={(e) => handleTabClick(e, item.to, isActive)}
+                onMouseEnter={() => prefetchRoute(item.to)}
+                onTouchStart={() => prefetchRoute(item.to)}
                 className="relative -top-3 flex flex-col items-center group focus:outline-none"
                 aria-label={item.label}
               >
@@ -99,6 +102,8 @@ export const BottomNav = () => {
               key={item.to}
               to={item.to}
               onClick={(e) => handleTabClick(e, item.to, isActive)}
+              onMouseEnter={() => prefetchRoute(item.to)}
+              onTouchStart={() => prefetchRoute(item.to)}
               className={({ isActive: navActive }) =>
                 cn(
                   'flex flex-col items-center justify-center py-1.5 px-3 rounded-xl transition-all duration-200 group focus:outline-none cursor-pointer active:scale-95',

@@ -128,69 +128,69 @@ export const DashboardPage = () => {
 
   return (
     <div className="space-y-4 text-left animate-in fade-in pb-10">
-      {/* Top Greeting & Quick Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-lime">
-            <span className="w-2 h-2 rounded-full bg-lime animate-pulse" />
+      {/* Top Greeting & Quick Actions - Sleek, Compact, High-Density */}
+      <div className="flex items-center justify-between gap-2.5 sm:gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-lime uppercase tracking-wider">
+            <span className="w-1.5 h-1.5 rounded-full bg-lime animate-pulse shrink-0" />
             <span>{getGreeting()}</span>
+            <span className="text-slate-500 font-normal hidden xs:inline">· {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mt-0.5">
-            {firstName}
+          <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight truncate mt-0.5">
+            Hi, {firstName}
           </h1>
-          <p className="text-xs text-slate-400">
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-          </p>
         </div>
 
-        {/* Quick Launch Buttons - Clean Mobile-First Layout */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
+        {/* Quick Launch Buttons - Compact Right-Side Group */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <Button
-            size="md"
+            size="sm"
             variant="primary"
             onClick={() => startSession(loadDashboardData)}
-            leftIcon={<Dumbbell className="w-4 h-4 shrink-0" />}
-            className="w-full sm:w-auto font-extrabold shadow-lime-sm justify-center py-2.5 px-4"
+            leftIcon={<Dumbbell className="w-3.5 h-3.5 shrink-0" />}
+            className="font-black shadow-lime-sm px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm h-9"
           >
             {hasActiveSavedSession ? (
-              <span className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-dark-950 animate-ping inline-block" />
-                <span>Resume Live Workout</span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-dark-950 animate-ping inline-block" />
+                <span>Resume</span>
               </span>
             ) : (
-              'Start Workout Session'
+              <span>Start Workout</span>
             )}
           </Button>
-          <div className="grid grid-cols-3 sm:flex sm:items-center gap-2">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => setIsFoodModalOpen(true)}
-              leftIcon={<Plus className="w-3.5 h-3.5 text-amber-400" />}
-              className="justify-center py-2"
-            >
-              Log Food
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => setIsWeightModalOpen(true)}
-              leftIcon={<Scale className="w-3.5 h-3.5 text-sky-400" />}
-              className="justify-center py-2"
-            >
-              Weigh-in
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => setIsShareDailyOpen(true)}
-              leftIcon={<Share2 className="w-3.5 h-3.5 text-lime" />}
-              className="justify-center py-2"
-              title="Share Fitness Card"
-            >
-              Share
-            </Button>
-          </div>
+
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setIsFoodModalOpen(true)}
+            className="px-2 sm:px-2.5 py-1.5 text-xs h-9"
+            title="Log Food"
+          >
+            <Plus className="w-3.5 h-3.5 text-amber-400 sm:mr-1" />
+            <span className="hidden sm:inline">Food</span>
+          </Button>
+
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setIsWeightModalOpen(true)}
+            className="px-2 sm:px-2.5 py-1.5 text-xs h-9"
+            title="Log Weight"
+          >
+            <Scale className="w-3.5 h-3.5 text-sky-400 sm:mr-1" />
+            <span className="hidden sm:inline">Weight</span>
+          </Button>
+
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setIsShareDailyOpen(true)}
+            className="px-2.5 py-1.5 text-xs h-9"
+            title="Share Fitness Card"
+          >
+            <Share2 className="w-3.5 h-3.5 text-lime" />
+          </Button>
         </div>
       </div>
 
